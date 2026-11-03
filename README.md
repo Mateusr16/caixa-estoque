@@ -1,16 +1,27 @@
-# Caixa & Estoque
+# Caixa & Estoque — Paróquia Nossa Senhora do Líbano (Carmo do Cajuru – MG)
 
 Um sistema de PDV (frente de caixa) e controle de estoque bem simples, que usa o **Google Sheets como banco de dados** e é feito para rodar no **Render**.
+
+## Visual da paróquia
+
+- Paleta: azul mariano (`#14305e`), ouro (`#c59a3a` / `#f3d98b`) e fundo marfim (`#f7f3ea`). As cores ficam nas variáveis do topo de `public/style.css`.
+- Emblema original em `public/brasao.svg` (cedro do Líbano dourado, coroa e 12 estrelas sobre disco azul), também usado como ícone da aba.
+- Cupom com o nome da paróquia no cabeçalho, o nome do caixa/operador e a mensagem final "Obrigado pela sua colaboração! Deus lhe abençoe." (função `textoCupom` em `public/app.js`).
 
 ## O que tem
 
 - **PDV**: busca por nome ou código de barras (o leitor USB funciona direto), carrinho, desconto, formas de pagamento (Dinheiro/PIX/Débito/Crédito), cálculo de troco e cupom não fiscal para imprimir.
   - Atalhos: `F1` vai para o PDV, `F2` finaliza a venda, `Esc` limpa o carrinho.
   - Digitar `3*7891234567890` + Enter adiciona 3 unidades daquele código.
+  - No celular/tablet (tela de toque), o campo de busca **não recebe foco sozinho** depois de tocar num produto, limpar o carrinho ou fechar o cupom, então o teclado não abre à toa. No computador continua focando, por causa do leitor de código de barras (função `focarBusca` em `public/app.js`).
 - **Produtos**: cadastro com código, categoria, custo, preço, margem, unidade e estoque mínimo.
+  - Filtro **"Filtrar por"**: escolha a coluna (Todas, Código, Produto, Categoria, Custo, Venda, Margem, Estoque ou Situação do estoque).
+  - Colunas de texto procuram trechos e ignoram acentos. Colunas de número aceitam `10`, `>10`, `<5`, `>=2`, `<=8` ou uma faixa `5-10`.
+  - "Situação do estoque" mostra uma lista: Zerado, Baixo (no mínimo ou abaixo) ou Normal. Ao lado aparece "X de Y produtos".
 - **Estoque**: entrada, saída e ajuste, com histórico completo. Toda venda baixa o estoque automaticamente.
 - **Vendas**: filtro por período, totais por forma de pagamento, reimpressão e cancelamento (o estoque volta).
-- **Caixa**: abertura com fundo de troco, sangria, suprimento e fechamento com conferência (valor esperado × valor contado).
+  - Botão **🖨️ Imprimir relatório**: imprime (ou salva em PDF) o relatório do período filtrado, com cabeçalho da paróquia, resumo (vendas, total, ticket médio, descontos, canceladas), totais por forma de pagamento e por caixa/operador, produtos vendidos e a lista de vendas. As canceladas aparecem riscadas e ficam fora do total. Usa a rota `GET /api/relatorio-vendas?de=&ate=`.
+- **Caixa**: vários caixas abertos ao mesmo tempo, cada um com o nome do operador; abertura com fundo de troco, sangria, suprimento e fechamento com conferência (valor esperado × valor contado).
 - **Painel**: vendas do dia, ticket médio, lucro estimado, gráfico dos últimos 7 dias, mais vendidos e alertas de estoque baixo.
 - Login por senha.
 

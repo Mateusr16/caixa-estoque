@@ -140,6 +140,10 @@ label input, label select { margin-top: 4px; }
 .toolbar input:not([type=date]) { max-width: 360px; }
 .toolbar label { display: flex; align-items: center; gap: 6px; margin: 0; }
 .toolbar label input { margin: 0; }
+.toolbar label select { margin: 0; width: auto; }
+.toolbar > select { max-width: 260px; margin: 0; }
+#prodContagem { margin-left: auto; }
+.rel-print { display: none; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--azul-2); font-weight: 700; padding: 8px 10px; border-bottom: 2px solid var(--ouro-claro); }
@@ -255,6 +259,10 @@ tr.cancelada td { color: var(--muted); text-decoration: line-through; }
   .toolbar > .btn { flex: 1 1 auto; }
   .toolbar label { flex: 1 1 40%; }
   .toolbar label input { min-width: 0; }
+  .toolbar label.filtro-col { flex: 1 1 100%; }
+  .toolbar label.filtro-col select { flex: 1; }
+  .toolbar > select { max-width: none; flex: 1 1 100%; }
+  #prodContagem { margin-left: 0; flex: 1 1 100%; }
   #vendasTotais { flex-basis: 100%; line-height: 1.5; }
 
   /* tabelas viram cartões */
@@ -307,3 +315,30 @@ tr.cancelada td { color: var(--muted); text-decoration: line-through; }
   .login-box { padding: 26px 20px 22px; }
 }
 @media print { body * { visibility: hidden; } .print-area, .print-area * { visibility: visible; } .print-area { position: absolute; left: 0; top: 0; border: 0; } }
+
+/* Relatório de vendas impresso (aba Vendas → Imprimir relatório) */
+@media print {
+  body.imprimindo-relatorio > *:not(#relPrint) { display: none !important; }
+  body.imprimindo-relatorio #relPrint, body.imprimindo-relatorio #relPrint * { visibility: visible; }
+  body.imprimindo-relatorio { background: #fff; }
+  body.imprimindo-relatorio #relPrint { display: block; position: static; color: #000; font-size: 11.5px; font-family: 'Nunito Sans', Arial, sans-serif; }
+  #relPrint .rel-cab { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #14305e; padding-bottom: 8px; font-size: 13px; }
+  #relPrint .rel-cab img { width: 46px; height: 46px; }
+  #relPrint h2 { margin: 10px 0 2px; font-size: 18px; color: #14305e; }
+  #relPrint h3 { margin: 14px 0 4px; font-size: 13px; color: #14305e; }
+  #relPrint p { margin: 2px 0; }
+  #relPrint .rel-kpis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  #relPrint .rel-kpis div { border: 1px solid #999; border-radius: 4px; padding: 4px 8px; flex: 1 1 auto; }
+  #relPrint .rel-kpis span { display: block; font-size: 10px; color: #444; }
+  #relPrint .rel-kpis b { font-size: 13px; }
+  #relPrint .rel-cols { display: flex; gap: 16px; }
+  #relPrint .rel-cols > * { flex: 1; }
+  #relPrint table { width: 100%; border-collapse: collapse; }
+  #relPrint th, #relPrint td { border-bottom: 1px solid #ccc; padding: 3px 4px; text-align: left; }
+  #relPrint th { background: #eee; }
+  #relPrint .num { text-align: right; }
+  #relPrint tr.cancelada td { text-decoration: line-through; color: #777; }
+  #relPrint tr.rel-total td { font-weight: 800; border-top: 2px solid #000; }
+  #relPrint tr { break-inside: avoid; }
+  #relPrint .rel-rodape { margin-top: 14px; text-align: center; font-style: italic; }
+}

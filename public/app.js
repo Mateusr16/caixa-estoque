@@ -5,6 +5,9 @@ const brl = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency',
 const num = (n) => (Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const dataBR = (s) => (s ? s.slice(8, 10) + '/' + s.slice(5, 7) + ' ' + s.slice(11, 16) : '');
+// No celular/tablet (tela de toque) não focamos a busca sozinhos: o foco abre o teclado e empurra a tela.
+const telaToque = () => window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(pointer: fine)').matches;
+function focarBusca() { if (telaToque()) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); return; } $('#pdvBusca').focus(); }
 const hojeISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
 let token = localStorage.getItem('token') || '';
@@ -56,7 +59,7 @@ $('#loginForm').addEventListener('submit', async (e) => {
 function irPara(tab) {
   $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   $$('.tab').forEach((s) => s.classList.toggle('active', s.id === 'tab-' + tab));
-  ({ pdv: () => $('#pdvBusca').focus(), painel: carregarPainel, produtos: renderProdutos, estoque: carregarEstoque, vendas: carregarVendas, caixa: carregarCaixa }[tab] || (() => {}))();
+  ({ pdv: () => focarBusca(), painel: carregarPainel, produtos: renderProdutos, estoque: carregarEstoque, vendas: carregarVendas, caixa: carregarCaixa }[tab] || (() => {}))();
 }
 $$('#tabs button').forEach((b) => b.addEventListener('click', () => irPara(b.dataset.tab)));
 
@@ -105,7 +108,7 @@ function adicionar(id, qtd) {
   if (novaQtd > p.estoque) toast(`Atenção: estoque de ${p.nome} é ${num(p.estoque)}`, true);
   if (it) it.quantidade = novaQtd; else S.carrinho.push({ produto_id: id, quantidade: q });
   $('#pdvBusca').value = ''; $('#pdvQtd').value = 1;
-  renderPDV(); renderCarrinho(); $('#pdvBusca').focus();
+  renderPDV(); renderCarrinho(); focarBusca();
 }
 function calc() {
   const subtotal = S.carrinho.reduce((s, i) => { const p = S.produtos.find((x) => x.id === i.produto_id); return s + (p ? p.preco_venda * i.quantidade : 0); }, 0);
@@ -154,7 +157,7 @@ $('#formas').addEventListener('click', (e) => {
   $$('#formas button').forEach((x) => x.classList.toggle('active', x === b));
   renderCarrinho();
 });
-function limparCarrinho() { S.carrinho = []; $('#cDesconto').value = 0; $('#cRecebido').value = ''; renderCarrinho(); $('#pdvBusca').focus(); }
+function limparCarrinho() { S.carrinho = []; $('#cDesconto').value = 0; $('#cRecebido').value = ''; renderCarrinho(); focarBusca(); }
 $('#btnLimpar').addEventListener('click', limparCarrinho);
 
 async function finalizar() {
@@ -194,7 +197,7 @@ function mostrarCupom(v, extra = '') {
   modal(`<h3>✅ Venda ${v.status === 'cancelada' ? '(cancelada)' : 'registrada'} — ${brl(v.total)}</h3>
     ${v.forma_pagamento === 'Dinheiro' && v.troco ? `<p style="font-size:22px;font-weight:800;color:var(--pri)">Troco: ${brl(v.troco)}</p>` : ''}
     <div class="cupom print-area">${esc(textoCupom(v))}</div>
-    <div class="modal-acoes">${extra}<button class="btn" onclick="window.print()">🖨️ Imprimir</button><button class="btn primary" id="okCupom" onclick="fecharModal();document.querySelector('#pdvBusca').focus()">OK (Enter)</button></div>`);
+    <div class="modal-acoes">${extra}<button class="btn" onclick="window.print()">🖨️ Imprimir</button><button class="btn primary" id="okCupom" onclick="fecharModal();focarBusca()">OK (Enter)</button></div>`);
   setTimeout(() => $('#okCupom') && $('#okCupom').focus(), 50);
 }
 
@@ -206,21 +209,54 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ================= produtos ================= */
+const margemDe = (p) => (p.preco_venda && p.preco_custo ? ((p.preco_venda - p.preco_custo) / p.preco_venda) * 100 : 0);
+const situacaoDe = (p) => (p.estoque <= 0 ? 'zerado' : p.estoque <= p.estoque_minimo ? 'baixo' : 'ok');
+const COLS_NUM = ['preco_custo', 'preco_venda', 'margem', 'estoque'];
+const semAcento = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+// Para colunas de número aceita: 10 · >10 · <5 · >=2 · <=8 · 5-10 (faixa)
+function filtroNumero(valor, q) {
+  q = q.replace(/\s/g, '').replace(/,/g, '.');
+  let m = q.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/);
+  if (m) { const a = Number(m[1]), b = Number(m[2]); return valor >= Math.min(a, b) && valor <= Math.max(a, b); }
+  m = q.match(/^(>=|<=|>|<|=)?(-?\d+(?:\.\d+)?)$/);
+  if (!m) return true;
+  const n = Number(m[2]);
+  return { '>': valor > n, '<': valor < n, '>=': valor >= n, '<=': valor <= n }[m[1]] ?? Math.abs(valor - n) < 0.005;
+}
+const DICAS = { todas: 'Buscar em todas as colunas...', codigo: 'Digite o código...', nome: 'Digite o nome do produto...', categoria: 'Digite a categoria...',
+  preco_custo: 'Ex.: 10 · >10 · <5 · 5-10', preco_venda: 'Ex.: 10 · >10 · <5 · 5-10', margem: 'Ex.: >30 · <20 · 20-40', estoque: 'Ex.: 0 · <5 · >=10 · 1-20' };
+function prodColunaMudou() {
+  const col = $('#prodColuna').value, sit = col === 'situacao';
+  $('#prodBusca').classList.toggle('hidden', sit); $('#prodSituacao').classList.toggle('hidden', !sit);
+  $('#prodBusca').placeholder = DICAS[col] || '';
+  $('#prodBusca').inputMode = COLS_NUM.includes(col) ? 'decimal' : 'text';
+  renderProdutos();
+}
 function renderProdutos() {
-  const q = $('#prodBusca').value.trim().toLowerCase();
-  const lista = S.produtos.filter((p) => !q || p.nome.toLowerCase().includes(q) || String(p.codigo).toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q));
+  const col = $('#prodColuna').value, q = semAcento($('#prodBusca').value.trim()), sit = $('#prodSituacao').value;
+  const lista = S.produtos.filter((p) => {
+    if (col === 'situacao') return !sit || situacaoDe(p) === sit;
+    if (!q) return true;
+    if (col === 'todas') return [p.codigo, p.nome, p.categoria].some((v) => semAcento(v).includes(q));
+    if (COLS_NUM.includes(col)) return filtroNumero(col === 'margem' ? margemDe(p) : Number(p[col]) || 0, q);
+    return semAcento(p[col]).includes(q);
+  });
+  const filtrando = col === 'situacao' ? !!sit : !!q;
+  $('#prodContagem').textContent = filtrando ? `${lista.length} de ${S.produtos.length} produtos` : `${S.produtos.length} produtos`;
   $('#tabProdutos').innerHTML = `<tr><th>Código</th><th>Produto</th><th>Categoria</th><th class="num">Custo</th><th class="num">Venda</th><th class="num">Margem</th><th class="num">Estoque</th><th></th></tr>` +
     (lista.map((p) => {
-      const margem = p.preco_venda ? ((p.preco_venda - p.preco_custo) / p.preco_venda) * 100 : 0;
+      const margem = margemDe(p);
       const tag = p.estoque <= 0 ? 'red' : p.estoque <= p.estoque_minimo ? 'amber' : 'green';
       return `<tr><td>${esc(p.codigo)}</td><td><b>${esc(p.nome)}</b></td><td>${esc(p.categoria)}</td>
         <td class="num">${brl(p.preco_custo)}</td><td class="num">${brl(p.preco_venda)}</td><td class="num">${p.preco_custo ? margem.toFixed(0) + '%' : '—'}</td>
         <td class="num"><span class="tag ${tag}">${num(p.estoque)} ${esc(p.unidade)}</span></td>
         <td class="num"><button class="btn sm" data-edit="${p.id}">Editar</button> <button class="btn sm" data-mov="${p.id}">Estoque</button></td></tr>`;
-    }).join('') || `<tr><td colspan="8" class="vazio">Nenhum produto cadastrado</td></tr>`);
+    }).join('') || `<tr><td colspan="8" class="vazio">${S.produtos.length ? 'Nenhum produto encontrado com esse filtro' : 'Nenhum produto cadastrado'}</td></tr>`);
   rotular('#tabProdutos', 1);
 }
 $('#prodBusca').addEventListener('input', renderProdutos);
+$('#prodColuna').addEventListener('change', prodColunaMudou);
+$('#prodSituacao').addEventListener('change', renderProdutos);
 $('#btnNovoProd').addEventListener('click', () => formProduto());
 $('#tabProdutos').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
@@ -292,9 +328,11 @@ $('#formMov').addEventListener('submit', async (e) => {
 });
 
 /* ================= vendas ================= */
+let ultimasVendas = [];
 async function carregarVendas() {
   if (!$('#vDe').value) { $('#vDe').value = hojeISO(); $('#vAte').value = hojeISO(); }
   const vendas = await api(`/api/vendas?de=${$('#vDe').value}&ate=${$('#vAte').value}`);
+  ultimasVendas = vendas;
   const ok = vendas.filter((v) => v.status !== 'cancelada');
   const porForma = {};
   ok.forEach((v) => (porForma[v.forma_pagamento] = (porForma[v.forma_pagamento] || 0) + v.total));
@@ -307,6 +345,44 @@ async function carregarVendas() {
   rotular('#tabVendas');
 }
 $('#btnFiltrarVendas').addEventListener('click', carregarVendas);
+
+const dataCurta = (iso) => (iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '');
+async function imprimirRelatorioVendas() {
+  const btn = $('#btnImprimirVendas'); btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Preparando...';
+  try {
+    await carregarVendas(); // garante que o relatório é exatamente o filtro da tela
+    const de = $('#vDe').value, ate = $('#vAte').value, vendas = ultimasVendas;
+    const { produtos } = await api(`/api/relatorio-vendas?de=${de}&ate=${ate}`);
+    const ok = vendas.filter((v) => v.status !== 'cancelada'), canc = vendas.filter((v) => v.status === 'cancelada');
+    const total = ok.reduce((s, v) => s + v.total, 0), desc = ok.reduce((s, v) => s + (v.desconto || 0), 0);
+    const soma = (lista, chave) => { const o = {}; lista.forEach((v) => { const k = v[chave] || '—'; o[k] = o[k] || { qtd: 0, total: 0 }; o[k].qtd++; o[k].total += v.total; }); return Object.entries(o).sort((a, b) => b[1].total - a[1].total); };
+    const tabelaResumo = (titulo, linhas) => `<div><h3>${titulo}</h3><table><tr><th></th><th class="num">Vendas</th><th class="num">Total</th></tr>${linhas.map(([k, x]) => `<tr><td>${esc(k)}</td><td class="num">${x.qtd}</td><td class="num">${brl(x.total)}</td></tr>`).join('') || '<tr><td colspan="3">—</td></tr>'}</table></div>`;
+    const agora = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    $('#relPrint').innerHTML = `
+      <div class="rel-cab"><img src="/brasao.svg" alt=""><div><b>Paróquia Nossa Senhora do Líbano</b><br>Carmo do Cajuru – MG</div></div>
+      <h2>Relatório de vendas</h2>
+      <p>Período: <b>${dataCurta(de)}${ate !== de ? ' a ' + dataCurta(ate) : ''}</b> · Emitido em ${agora}</p>
+      <div class="rel-kpis">
+        <div><span>Vendas</span><b>${ok.length}</b></div><div><span>Total vendido</span><b>${brl(total)}</b></div>
+        <div><span>Ticket médio</span><b>${brl(ok.length ? total / ok.length : 0)}</b></div><div><span>Descontos</span><b>${brl(desc)}</b></div>
+        <div><span>Canceladas</span><b>${canc.length}${canc.length ? ' (' + brl(canc.reduce((s, v) => s + v.total, 0)) + ')' : ''}</b></div>
+      </div>
+      <div class="rel-cols">${tabelaResumo('Por forma de pagamento', soma(ok, 'forma_pagamento'))}${tabelaResumo('Por caixa / operador', soma(ok, 'operador'))}</div>
+      <h3>Produtos vendidos</h3>
+      <table><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Total</th></tr>${produtos.map((p) => `<tr><td>${esc(p.nome)}</td><td class="num">${num(p.quantidade)}</td><td class="num">${brl(p.total)}</td></tr>`).join('') || '<tr><td colspan="3">Nenhum produto vendido</td></tr>'}</table>
+      <h3>Vendas do período</h3>
+      <table><tr><th>Data</th><th>Venda</th><th>Caixa</th><th>Pagamento</th><th class="num">Itens</th><th class="num">Desconto</th><th class="num">Total</th><th>Status</th></tr>
+        ${vendas.map((v) => `<tr class="${v.status}"><td>${dataBR(v.data)}</td><td>${v.id}</td><td>${esc(v.operador) || '—'}</td><td>${esc(v.forma_pagamento)}</td><td class="num">${num(v.itens_qtd)}</td><td class="num">${v.desconto ? brl(v.desconto) : '—'}</td><td class="num">${brl(v.total)}</td><td>${v.status}</td></tr>`).join('') || '<tr><td colspan="8">Nenhuma venda no período</td></tr>'}
+        <tr class="rel-total"><td colspan="6">Total (sem as canceladas)</td><td class="num">${brl(total)}</td><td></td></tr></table>
+      <p class="rel-rodape">Nossa Senhora do Líbano, rogai por nós.</p>`;
+    document.body.classList.add('imprimindo-relatorio');
+    const limpar = () => document.body.classList.remove('imprimindo-relatorio');
+    window.addEventListener('afterprint', limpar, { once: true });
+    setTimeout(() => { window.print(); setTimeout(limpar, 1000); }, 150);
+  } catch (err) { toast(err.message, true); }
+  finally { btn.disabled = false; btn.textContent = txt; }
+}
+$('#btnImprimirVendas').addEventListener('click', imprimirRelatorioVendas);
 $('#tabVendas').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-v]'); if (!b) return;
   const v = await api('/api/vendas/' + b.dataset.v);
@@ -357,7 +433,7 @@ function escolherCaixa(paraVender) {
     <div class="modal-acoes"><button class="btn" id="cxNovo" style="margin-right:auto">+ Abrir outro caixa</button><button class="btn" onclick="fecharModal()">Cancelar</button></div>`);
   $$('.lista-caixas button').forEach((bt) => bt.addEventListener('click', () => {
     usarCaixa(bt.dataset.cx); fecharModal(); toast('Usando o caixa de ' + meuCaixa().operador);
-    if (paraVender) finalizar(); else if ($('#tab-caixa').classList.contains('active')) carregarCaixa(); else $('#pdvBusca').focus();
+    if (paraVender) finalizar(); else if ($('#tab-caixa').classList.contains('active')) carregarCaixa(); else focarBusca();
   }));
   $('#cxNovo').addEventListener('click', () => { fecharModal(); irPara('caixa'); $('#abNome').focus(); });
   setTimeout(() => { const f = $('.lista-caixas button.sel') || $('.lista-caixas button'); f && f.focus(); }, 50);
@@ -481,7 +557,7 @@ async function iniciar() {
     await Promise.all([carregarProdutos(), atualizarBadge()]);
     renderCarrinho();
     if (S.config.exigirCaixa && S.caixa && !meuCaixa()) toast(S.caixa.abertos.length ? 'Escolha em qual caixa você está (botão no topo)' : 'Nenhum caixa aberto — abra na aba Caixa para vender');
-    $('#pdvBusca').focus();
+    focarBusca();
   } catch (e) { if (e.message !== 'Faça login') toast(e.message, true); }
 }
 iniciar();

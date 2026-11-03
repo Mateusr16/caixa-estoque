@@ -256,6 +256,20 @@ app.get('/api/vendas', wrap(async (req, res) => {
   res.json(vendas);
 }));
 
+// Produtos vendidos no período (para o relatório impresso da aba Vendas)
+app.get('/api/relatorio-vendas', wrap(async (req, res) => {
+  const de = req.query.de || hoje(), ate = req.query.ate || hoje();
+  const [vendas, itens] = await Promise.all([db.all('Vendas'), db.all('ItensVenda')]);
+  const ids = new Set(vendas.filter((v) => v.status !== 'cancelada' && v.data.slice(0, 10) >= de && v.data.slice(0, 10) <= ate).map((v) => v.id));
+  const porProduto = {};
+  itens.filter((i) => ids.has(i.venda_id)).forEach((i) => {
+    const k = i.produto_id || i.nome;
+    porProduto[k] = porProduto[k] || { nome: i.nome, quantidade: 0, total: 0 };
+    porProduto[k].quantidade += Number(i.quantidade) || 0; porProduto[k].total = r2(porProduto[k].total + (Number(i.total) || 0));
+  });
+  res.json({ produtos: Object.values(porProduto).sort((a, b) => b.total - a.total) });
+}));
+
 app.get('/api/vendas/:id', wrap(async (req, res) => {
   const v = (await db.all('Vendas')).find((x) => x.id === req.params.id);
   if (!v) throw new HttpError(404, 'Venda não encontrada');
