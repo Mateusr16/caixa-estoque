@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Caixa & Estoque</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- Login -->
+  <div id="login" class="login hidden">
+    <form id="loginForm" class="login-box">
+      <div class="logo big">◆ Caixa</div>
+      <p class="muted">Digite a senha para entrar</p>
+      <input type="password" id="loginSenha" placeholder="Senha" autofocus />
+      <button class="btn primary full">Entrar</button>
+      <p id="loginErro" class="erro"></p>
+    </form>
+  </div>
+
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="logo">◆ Caixa</div>
+      <nav id="tabs">
+        <button data-tab="pdv" class="active">PDV <kbd>F1</kbd></button>
+        <button data-tab="painel">Painel</button>
+        <button data-tab="produtos">Produtos</button>
+        <button data-tab="estoque">Estoque</button>
+        <button data-tab="vendas">Vendas</button>
+        <button data-tab="caixa">Caixa</button>
+      </nav>
+      <div id="caixaBadge" class="badge">…</div>
+    </header>
+
+    <main>
+      <!-- PDV -->
+      <section id="tab-pdv" class="tab active">
+        <div class="pdv">
+          <div class="pdv-left card">
+            <div class="search-wrap">
+              <input id="pdvBusca" placeholder="Código de barras ou nome do produto  (Enter adiciona)" autocomplete="off" />
+              <input id="pdvQtd" type="number" min="0.001" step="any" value="1" title="Quantidade" />
+            </div>
+            <div id="pdvCategorias" class="chips"></div>
+            <div id="pdvGrid" class="grid"></div>
+          </div>
+          <div class="pdv-right card">
+            <h3>Carrinho</h3>
+            <div id="carrinho" class="carrinho"></div>
+            <div class="totais">
+              <div class="linha"><span>Subtotal</span><span id="cSubtotal">R$ 0,00</span></div>
+              <div class="linha"><span>Desconto (R$)</span><input id="cDesconto" type="number" min="0" step="0.01" value="0" /></div>
+              <div class="linha total"><span>Total</span><span id="cTotal">R$ 0,00</span></div>
+            </div>
+            <div class="pagamentos" id="formas">
+              <button data-forma="Dinheiro" class="active">💵 Dinheiro</button>
+              <button data-forma="PIX">⚡ PIX</button>
+              <button data-forma="Débito">💳 Débito</button>
+              <button data-forma="Crédito">💳 Crédito</button>
+            </div>
+            <div id="boxRecebido" class="linha">
+              <span>Recebido</span><input id="cRecebido" type="number" min="0" step="0.01" placeholder="0,00" />
+            </div>
+            <div class="linha troco"><span>Troco</span><span id="cTroco">R$ 0,00</span></div>
+            <div class="acoes">
+              <button id="btnLimpar" class="btn ghost">Limpar <kbd>Esc</kbd></button>
+              <button id="btnFinalizar" class="btn primary">Finalizar venda <kbd>F2</kbd></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Painel -->
+      <section id="tab-painel" class="tab">
+        <div class="kpis" id="kpis"></div>
+        <div class="cols">
+          <div class="card"><h3>Vendas — últimos 7 dias</h3><div id="grafico" class="bars"></div></div>
+          <div class="card"><h3>Mais vendidos hoje</h3><div id="top"></div></div>
+        </div>
+        <div class="card"><h3>⚠️ Estoque baixo</h3><div id="baixo"></div></div>
+      </section>
+
+      <!-- Produtos -->
+      <section id="tab-produtos" class="tab">
+        <div class="toolbar">
+          <input id="prodBusca" placeholder="Buscar produto..." />
+          <button id="btnNovoProd" class="btn primary">+ Novo produto</button>
+        </div>
+        <div class="card table-wrap"><table id="tabProdutos"></table></div>
+      </section>
+
+      <!-- Estoque -->
+      <section id="tab-estoque" class="tab">
+        <div class="cols">
+          <form id="formMov" class="card">
+            <h3>Movimentar estoque</h3>
+            <label>Produto<select id="movProduto" required></select></label>
+            <label>Tipo
+              <select id="movTipo">
+                <option value="entrada">Entrada (compra / reposição)</option>
+                <option value="saida">Saída (perda / uso / avaria)</option>
+                <option value="ajuste">Ajuste (definir quantidade exata)</option>
+              </select>
+            </label>
+            <label><span id="movQtdLabel">Quantidade</span><input id="movQtd" type="number" step="any" min="0" required /></label>
+            <label>Motivo / observação<input id="movMotivo" placeholder="Ex.: NF 1234, fornecedor X" /></label>
+            <p id="movInfo" class="muted"></p>
+            <button class="btn primary full">Registrar</button>
+          </form>
+          <div class="card table-wrap"><h3>Histórico</h3><table id="tabMov"></table></div>
+        </div>
+      </section>
+
+      <!-- Vendas -->
+      <section id="tab-vendas" class="tab">
+        <div class="toolbar">
+          <label>De <input type="date" id="vDe" /></label>
+          <label>Até <input type="date" id="vAte" /></label>
+          <button id="btnFiltrarVendas" class="btn">Filtrar</button>
+          <div id="vendasTotais" class="muted"></div>
+        </div>
+        <div class="card table-wrap"><table id="tabVendas"></table></div>
+      </section>
+
+      <!-- Caixa -->
+      <section id="tab-caixa" class="tab">
+        <div class="cols">
+          <div class="card" id="caixaStatus"></div>
+          <form id="formCaixa" class="card">
+            <h3 id="caixaAcaoTitulo">Operação</h3>
+            <label>Operação<select id="cxTipo"></select></label>
+            <label><span id="cxValorLabel">Valor (R$)</span><input id="cxValor" type="number" step="0.01" min="0" required /></label>
+            <label>Observação<input id="cxObs" /></label>
+            <button class="btn primary full">Confirmar</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal hidden"><div class="modal-box" id="modalBox"></div></div>
+  <div id="toast" class="toast"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
