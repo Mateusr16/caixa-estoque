@@ -25,6 +25,17 @@ function toast(msg, err) {
 }
 function modal(html) { $('#modalBox').innerHTML = html; $('#modal').classList.remove('hidden'); }
 function fecharModal() { $('#modal').classList.add('hidden'); }
+// No celular as tabelas viram "cartões": cada célula recebe o nome da coluna (data-label).
+function rotular(alvo, principal = -1) {
+  const t = typeof alvo === 'string' ? $(alvo) : alvo; if (!t) return;
+  let cab = [];
+  t.querySelectorAll('tr').forEach((tr) => {
+    const cells = [...tr.children];
+    if (cells.length && cells.every((c) => c.tagName === 'TH')) { tr.classList.add('cab'); cab = cells.map((c) => c.textContent.trim()); return; }
+    cells.forEach((td, i) => { td.dataset.label = td.colSpan > 1 ? '' : cab[i] || ''; if (i === principal) td.classList.add('pri'); });
+  });
+  t.classList.add('resp');
+}
 $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') fecharModal(); });
 
 /* ================= estado ================= */
@@ -115,6 +126,7 @@ function renderCarrinho() {
   const c = calc();
   $('#cSubtotal').textContent = brl(c.subtotal);
   $('#cTotal').textContent = brl(c.total);
+  if (c.total > 0) $('#btnFinalizar').dataset.total = brl(c.total); else delete $('#btnFinalizar').dataset.total;
   $('#cTroco').textContent = brl(Math.max(c.troco, 0));
   $('#cTroco').style.color = c.troco < 0 ? 'var(--red)' : '';
   $('#boxRecebido').style.display = S.forma === 'Dinheiro' ? '' : 'none';
@@ -206,6 +218,7 @@ function renderProdutos() {
         <td class="num"><span class="tag ${tag}">${num(p.estoque)} ${esc(p.unidade)}</span></td>
         <td class="num"><button class="btn sm" data-edit="${p.id}">Editar</button> <button class="btn sm" data-mov="${p.id}">Estoque</button></td></tr>`;
     }).join('') || `<tr><td colspan="8" class="vazio">Nenhum produto cadastrado</td></tr>`);
+  rotular('#tabProdutos', 1);
 }
 $('#prodBusca').addEventListener('input', renderProdutos);
 $('#btnNovoProd').addEventListener('click', () => formProduto());
@@ -260,6 +273,7 @@ async function carregarEstoque() {
     (movs.map((m) => `<tr><td>${dataBR(m.data)}</td><td>${esc(m.nome)}</td><td><span class="tag ${m.tipo === 'entrada' ? 'green' : m.tipo === 'saida' ? 'red' : 'amber'}">${m.tipo}</span></td>
       <td class="num">${m.quantidade > 0 ? '+' : ''}${num(m.quantidade)}</td><td class="num">${num(m.estoque_apos)}</td><td class="muted">${esc(m.motivo)}</td></tr>`).join('') ||
       '<tr><td colspan="6" class="vazio">Sem movimentações</td></tr>');
+  rotular('#tabMov', 1);
 }
 function infoMov() {
   const p = S.produtos.find((x) => x.id === $('#movProduto').value);
@@ -290,6 +304,7 @@ async function carregarVendas() {
       <td class="num">${v.desconto ? brl(v.desconto) : '—'}</td><td class="num"><b>${brl(v.total)}</b></td>
       <td><span class="tag ${v.status === 'cancelada' ? 'red' : 'green'}">${v.status}</span></td><td class="num"><button class="btn sm" data-v="${v.id}">Ver</button></td></tr>`).join('') ||
       '<tr><td colspan="9" class="vazio">Nenhuma venda no período</td></tr>');
+  rotular('#tabVendas');
 }
 $('#btnFiltrarVendas').addEventListener('click', carregarVendas);
 $('#tabVendas').addEventListener('click', async (e) => {
@@ -384,6 +399,7 @@ async function carregarCaixa() {
       <td class="num">${c.vendasQtd}</td><td class="num"><b>${brl(c.totalVendas)}</b></td><td class="num">${brl(c.esperadoDinheiro)}</td><td class="num">${brl(c.contado)}</td>
       <td class="num"><span class="tag ${c.diferenca < 0 ? 'red' : c.diferenca > 0 ? 'amber' : 'green'}">${brl(c.diferenca)}</span></td></tr>`).join('') ||
       '<tr><td colspan="8" class="vazio">Nenhum caixa fechado hoje</td></tr>');
+  rotular('#tabFechados', 0);
 }
 
 $('#caixasAbertos').addEventListener('click', (e) => {
@@ -445,13 +461,23 @@ async function carregarPainel() {
   $('#grafico').innerHTML = r.ultimos7.map((d) => `<div class="bar"><span class="vv">${d.total ? brl(d.total).replace(',00', '') : ''}</span><div class="b" style="height:${(d.total / max) * 100}%"></div><span class="d">${dias[new Date(d.dia + 'T12:00').getDay()]} ${d.dia.slice(8)}</span></div>`).join('');
   $('#top').innerHTML = r.topProdutos.length ? `<table>${r.topProdutos.map((p) => `<tr><td>${esc(p.nome)}</td><td class="num">${num(p.quantidade)}</td><td class="num">${brl(p.total)}</td></tr>`).join('')}</table>` : '<div class="vazio">Nenhuma venda hoje</div>';
   $('#baixo').innerHTML = r.estoqueBaixo.length ? `<table><tr><th>Produto</th><th class="num">Estoque</th><th class="num">Mínimo</th></tr>${r.estoqueBaixo.map((p) => `<tr><td>${esc(p.nome)}</td><td class="num"><span class="tag ${p.estoque <= 0 ? 'red' : 'amber'}">${num(p.estoque)}</span></td><td class="num">${num(p.estoque_minimo)}</td></tr>`).join('')}</table>` : '<div class="vazio">Tudo em ordem 👍</div>';
+  rotular($('#baixo table'), 0);
 }
 
 /* ================= início ================= */
+// Mede topo e rodapé para o PDV caber exatamente na janela (sem botões escondidos atrás do rodapé).
+function medirLayout() {
+  const r = document.documentElement.style;
+  r.setProperty('--topo-h', $('.topbar').offsetHeight + 'px');
+  r.setProperty('--rodape-h', $('.rodape').offsetHeight + 'px');
+}
+if (window.ResizeObserver) { const ro = new ResizeObserver(medirLayout); ro.observe($('.topbar')); ro.observe($('.rodape')); }
+window.addEventListener('resize', medirLayout);
 async function iniciar() {
   try {
     S.config = await api('/api/config');
     $('#app').classList.remove('hidden');
+    medirLayout();
     await Promise.all([carregarProdutos(), atualizarBadge()]);
     renderCarrinho();
     if (S.config.exigirCaixa && S.caixa && !meuCaixa()) toast(S.caixa.abertos.length ? 'Escolha em qual caixa você está (botão no topo)' : 'Nenhum caixa aberto — abra na aba Caixa para vender');

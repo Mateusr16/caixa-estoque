@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Caixa · Paróquia Nossa Senhora do Líbano</title>
   <meta name="theme-color" content="#14305e" />
   <link rel="icon" type="image/svg+xml" href="/brasao.svg" />
@@ -52,8 +52,8 @@
         <div class="pdv">
           <div class="pdv-left card">
             <div class="search-wrap">
-              <input id="pdvBusca" placeholder="Código de barras ou nome do produto  (Enter adiciona)" autocomplete="off" />
-              <input id="pdvQtd" type="number" min="0.001" step="any" value="1" title="Quantidade" />
+              <input id="pdvBusca" placeholder="Produto ou código de barras" title="Enter adiciona o primeiro produto da lista" autocomplete="off" enterkeyhint="done" />
+              <input id="pdvQtd" type="number" min="0.001" step="any" value="1" title="Quantidade" inputmode="decimal" />
             </div>
             <div id="pdvCategorias" class="chips"></div>
             <div id="pdvGrid" class="grid"></div>
@@ -66,7 +66,7 @@
             <div id="carrinho" class="carrinho"></div>
             <div class="totais">
               <div class="linha"><span>Subtotal</span><span id="cSubtotal">R$ 0,00</span></div>
-              <div class="linha"><span>Desconto (R$)</span><input id="cDesconto" type="number" min="0" step="0.01" value="0" /></div>
+              <div class="linha"><span>Desconto (R$)</span><input id="cDesconto" type="number" min="0" step="0.01" value="0" inputmode="decimal" /></div>
               <div class="linha total"><span>Total</span><span id="cTotal">R$ 0,00</span></div>
             </div>
             <div class="pagamentos" id="formas">
@@ -75,10 +75,10 @@
               <button data-forma="Débito">💳 Débito</button>
               <button data-forma="Crédito">💳 Crédito</button>
             </div>
-            <div id="boxRecebido" class="linha">
-              <span>Recebido</span><input id="cRecebido" type="number" min="0" step="0.01" placeholder="0,00" />
+            <div class="dinheiro">
+              <label id="boxRecebido" class="campo">Recebido (R$)<input id="cRecebido" type="number" min="0" step="0.01" placeholder="0,00" inputmode="decimal" /></label>
+              <div class="campo troco"><span>Troco</span><b id="cTroco">R$ 0,00</b></div>
             </div>
-            <div class="linha troco"><span>Troco</span><span id="cTroco">R$ 0,00</span></div>
             <div class="acoes">
               <button id="btnLimpar" class="btn ghost">Limpar <kbd>Esc</kbd></button>
               <button id="btnFinalizar" class="btn primary">Finalizar venda <kbd>F2</kbd></button>
