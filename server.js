@@ -123,57 +123,100 @@ app.get('/api/movimentacoes', wrap(async (req, res) => {
   res.json(movs.slice(0, Number(req.query.limit) || 200));
 }));
 
-/* ---------------- caixa ---------------- */
-async function statusCaixa() {
-  const movs = await db.all('Caixa');
-  let iAbertura = -1;
-  for (let i = movs.length - 1; i >= 0; i--) {
-    if (movs[i].tipo === 'fechamento') break;
-    if (movs[i].tipo === 'abertura') { iAbertura = i; break; }
-  }
-  if (iAbertura < 0) {
-    const ultimo = [...movs].reverse().find((m) => m.tipo === 'fechamento');
-    return { aberto: false, ultimoFechamento: ultimo ? clean(ultimo) : null };
-  }
-  const sessao = movs.slice(iAbertura);
-  const abertura = sessao[0];
-  const vendas = (await db.all('Vendas')).filter((v) => v.data >= abertura.data && v.status !== 'cancelada');
+/* ---------------- caixa (vários caixas abertos ao mesmo tempo) ---------------- */
+// Cada abertura cria um caixa próprio: caixa_id = id da linha de abertura, com o nome do operador.
+// Linhas antigas (sem caixa_id) continuam funcionando como um caixa único "legado".
+function resumoSessao(s) {
   const porForma = {};
-  vendas.forEach((v) => { porForma[v.forma_pagamento] = r2((porForma[v.forma_pagamento] || 0) + v.total); });
-  const soma = (t) => r2(sessao.filter((m) => m.tipo === t).reduce((s, m) => s + m.valor, 0));
+  s.vendas.forEach((v) => { porForma[v.forma_pagamento] = r2((porForma[v.forma_pagamento] || 0) + v.total); });
+  const soma = (t) => r2(s.movimentos.filter((m) => m.tipo === t).reduce((x, m) => x + m.valor, 0));
   const suprimentos = soma('suprimento'), sangrias = soma('sangria');
-  const dinheiro = porForma['Dinheiro'] || 0;
+  const esperadoDinheiro = r2(s.abertura.valor + suprimentos - sangrias + (porForma['Dinheiro'] || 0));
   return {
-    aberto: true, abertura: clean(abertura), movimentos: sessao.map(clean), vendasQtd: vendas.length,
-    totalVendas: r2(vendas.reduce((s, v) => s + v.total, 0)), porForma, suprimentos, sangrias,
-    esperadoDinheiro: r2(abertura.valor + suprimentos - sangrias + dinheiro),
+    caixa_id: s.caixa_id, operador: s.operador, aberto: !s.fechamento, abertura: s.abertura, fechamento: s.fechamento,
+    movimentos: s.movimentos, vendasQtd: s.vendas.length, totalVendas: r2(s.vendas.reduce((x, v) => x + v.total, 0)),
+    porForma, suprimentos, sangrias, esperadoDinheiro,
+    contado: s.fechamento ? s.fechamento.valor : null,
+    diferenca: s.fechamento ? r2(s.fechamento.valor - esperadoDinheiro) : null,
+  };
+}
+
+async function sessoesCaixa() {
+  const [movs, vendas] = await Promise.all([db.all('Caixa'), db.all('Vendas')]);
+  const mapa = new Map();
+  let legado = null;
+  for (const m of movs) {
+    if (m.tipo === 'abertura') {
+      const id = m.caixa_id || m.id;
+      const s = { caixa_id: id, operador: m.operador || 'Caixa', abertura: clean(m), movimentos: [], fechamento: null, vendas: [], legado: !m.caixa_id };
+      mapa.set(id, s);
+      if (s.legado) legado = s;
+      continue;
+    }
+    const s = m.caixa_id ? mapa.get(m.caixa_id) : legado;
+    if (!s || s.fechamento) continue;
+    if (m.tipo === 'fechamento') { s.fechamento = clean(m); if (s === legado) legado = null; } else s.movimentos.push(clean(m));
+  }
+  const lista = [...mapa.values()];
+  const legados = lista.filter((s) => s.legado);
+  for (const v of vendas) {
+    if (v.status === 'cancelada') continue;
+    const s = v.caixa_id ? mapa.get(v.caixa_id)
+      : legados.find((x) => v.data >= x.abertura.data && (!x.fechamento || v.data <= x.fechamento.data));
+    if (s) s.vendas.push(v);
+  }
+  return lista.map(resumoSessao);
+}
+
+async function statusCaixa() {
+  const todas = await sessoesCaixa();
+  const abertos = todas.filter((s) => s.aberto);
+  const d = hoje();
+  const fechadosHoje = todas.filter((s) => !s.aberto && s.fechamento.data.startsWith(d)).reverse();
+  return {
+    aberto: abertos.length > 0, abertos, fechadosHoje,
+    totalAbertos: r2(abertos.reduce((x, s) => x + s.totalVendas, 0)),
   };
 }
 
 app.get('/api/caixa', wrap(async (req, res) => res.json(await statusCaixa())));
 
 app.post('/api/caixa', wrap(async (req, res) => lock(async () => {
-  const { tipo, obs } = req.body;
+  const { tipo, obs, caixa_id } = req.body;
   const valor = r2(req.body.valor);
   if (!['abertura', 'suprimento', 'sangria', 'fechamento'].includes(tipo)) throw new HttpError(400, 'Operação inválida');
   if (valor < 0) throw new HttpError(400, 'Valor inválido');
   const st = await statusCaixa();
-  if (tipo === 'abertura' && st.aberto) throw new HttpError(400, 'O caixa já está aberto');
-  if (tipo !== 'abertura' && !st.aberto) throw new HttpError(400, 'O caixa está fechado');
+
+  if (tipo === 'abertura') {
+    const operador = String(req.body.operador || '').trim().replace(/\s+/g, ' ');
+    if (!operador) throw new HttpError(400, 'Informe o nome de quem vai operar o caixa');
+    if (st.abertos.some((s) => s.operador.toLowerCase() === operador.toLowerCase())) throw new HttpError(400, `Já existe um caixa aberto em nome de ${operador}`);
+    const id = novoId('C');
+    await db.append('Caixa', [{ id, data: agora(), tipo, valor, obs: obs || '', caixa_id: id, operador }]);
+    return res.json({ ok: true, caixa_id: id, operador });
+  }
+
+  const s = st.abertos.find((x) => x.caixa_id === caixa_id);
+  if (!s) throw new HttpError(400, 'Caixa não encontrado ou já fechado');
+  if (tipo === 'sangria' && valor > s.esperadoDinheiro) throw new HttpError(400, `Sangria maior que o dinheiro na gaveta (${s.esperadoDinheiro.toFixed(2)})`);
   let observacao = obs || '';
   if (tipo === 'fechamento') {
-    const dif = r2(valor - st.esperadoDinheiro);
-    observacao = `Esperado R$ ${st.esperadoDinheiro.toFixed(2)} | Contado R$ ${valor.toFixed(2)} | Diferença R$ ${dif.toFixed(2)} | Vendas R$ ${st.totalVendas.toFixed(2)} (${st.vendasQtd})${obs ? ' | ' + obs : ''}`;
+    const dif = r2(valor - s.esperadoDinheiro);
+    observacao = `${s.operador} | Esperado R$ ${s.esperadoDinheiro.toFixed(2)} | Contado R$ ${valor.toFixed(2)} | Diferença R$ ${dif.toFixed(2)} | Vendas R$ ${s.totalVendas.toFixed(2)} (${s.vendasQtd})${obs ? ' | ' + obs : ''}`;
   }
-  await db.append('Caixa', [{ id: novoId('C'), data: agora(), tipo, valor, obs: observacao }]);
-  res.json({ ok: true, resumo: tipo === 'fechamento' ? { ...st, contado: valor, diferenca: r2(valor - st.esperadoDinheiro) } : undefined });
+  await db.append('Caixa', [{ id: novoId('C'), data: agora(), tipo, valor, obs: observacao, caixa_id: s.caixa_id, operador: s.operador }]);
+  res.json({ ok: true, resumo: tipo === 'fechamento' ? { ...s, contado: valor, diferenca: r2(valor - s.esperadoDinheiro) } : undefined });
 })));
 
 /* ---------------- vendas ---------------- */
 app.post('/api/vendas', wrap(async (req, res) => lock(async () => {
   const { itens, forma_pagamento, obs } = req.body;
   if (!Array.isArray(itens) || !itens.length) throw new HttpError(400, 'Carrinho vazio');
-  if (EXIGIR_CAIXA && !(await statusCaixa()).aberto) throw new HttpError(400, 'Abra o caixa antes de vender');
+  const st = await statusCaixa();
+  const caixa = req.body.caixa_id ? st.abertos.find((x) => x.caixa_id === req.body.caixa_id) : null;
+  if (req.body.caixa_id && !caixa) throw new HttpError(400, 'Este caixa foi fechado. Escolha ou abra outro caixa.');
+  if (EXIGIR_CAIXA && !caixa) throw new HttpError(400, st.abertos.length ? 'Escolha em qual caixa você está vendendo' : 'Abra um caixa antes de vender');
   const produtos = await db.all('Produtos');
   const data = agora();
   const id = novoId('V');
@@ -198,7 +241,8 @@ app.post('/api/vendas', wrap(async (req, res) => lock(async () => {
   let recebido = r2(req.body.valor_recebido || total);
   if (forma === 'Dinheiro' && recebido < total) throw new HttpError(400, 'Valor recebido menor que o total');
   if (forma !== 'Dinheiro') recebido = total;
-  const venda = { id, data, subtotal, desconto, total, forma_pagamento: forma, valor_recebido: recebido, troco: r2(recebido - total), itens_qtd: qtdTotal, status: 'concluida', obs: obs || '' };
+  const venda = { id, data, subtotal, desconto, total, forma_pagamento: forma, valor_recebido: recebido, troco: r2(recebido - total), itens_qtd: qtdTotal, status: 'concluida', obs: obs || '',
+    caixa_id: caixa ? caixa.caixa_id : '', operador: caixa ? caixa.operador : '' };
 
   await db.update(atualiza.map((p) => ({ sheet: 'Produtos', obj: p })));
   await db.append('Vendas', [venda]);

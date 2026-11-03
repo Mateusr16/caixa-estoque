@@ -28,7 +28,7 @@ function fecharModal() { $('#modal').classList.add('hidden'); }
 $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') fecharModal(); });
 
 /* ================= estado ================= */
-const S = { produtos: [], carrinho: [], forma: 'Dinheiro', categoria: '', caixa: null, config: {} };
+const S = { produtos: [], carrinho: [], forma: 'Dinheiro', categoria: '', caixa: null, config: {}, caixaId: localStorage.getItem('caixaId') || '' };
 
 /* ================= login ================= */
 function mostrarLogin() { $('#app').classList.add('hidden'); $('#login').classList.remove('hidden'); $('#loginSenha').focus(); }
@@ -147,16 +147,20 @@ $('#btnLimpar').addEventListener('click', limparCarrinho);
 
 async function finalizar() {
   if (!S.carrinho.length) return toast('Carrinho vazio', true);
+  if (!meuCaixa()) {
+    await atualizarBadge();
+    if (!meuCaixa() && (S.config.exigirCaixa || (S.caixa && S.caixa.abertos.length))) return escolherCaixa(true);
+  }
   const c = calc();
   if (S.forma === 'Dinheiro' && c.recebido && c.recebido < c.total) return toast('Valor recebido menor que o total', true);
   const btn = $('#btnFinalizar'); btn.disabled = true; btn.textContent = 'Salvando...';
   try {
-    const v = await api('/api/vendas', { method: 'POST', body: { itens: S.carrinho, desconto: c.desconto, forma_pagamento: S.forma, valor_recebido: c.recebido || c.total } });
+    const v = await api('/api/vendas', { method: 'POST', body: { itens: S.carrinho, desconto: c.desconto, forma_pagamento: S.forma, valor_recebido: c.recebido || c.total, caixa_id: S.caixaId || undefined } });
     limparCarrinho();
     await carregarProdutos();
     atualizarBadge();
     mostrarCupom(v);
-  } catch (err) { toast(err.message, true); }
+  } catch (err) { toast(err.message, true); if (/caixa/i.test(err.message)) atualizarBadge(); }
   finally { btn.disabled = false; btn.innerHTML = 'Finalizar venda <kbd>F2</kbd>'; }
 }
 $('#btnFinalizar').addEventListener('click', finalizar);
@@ -165,7 +169,7 @@ function textoCupom(v) {
   const L = 40, line = '-'.repeat(L);
   const pad = (a, b) => a + ' '.repeat(Math.max(1, L - a.length - b.length)) + b;
   const centro = (x) => ' '.repeat(Math.max(0, Math.floor((L - x.length) / 2))) + x;
-  let t = `${centro('PARÓQUIA')}\n${centro('NOSSA SENHORA DO LÍBANO')}\n${centro('Carmo do Cajuru - MG')}\n${line}\n${centro('CUPOM NÃO FISCAL')}\n${line}\nVenda: ${v.id}\nData: ${dataBR(v.data)}\n${line}\n`;
+  let t = `${centro('PARÓQUIA')}\n${centro('NOSSA SENHORA DO LÍBANO')}\n${centro('Carmo do Cajuru - MG')}\n${line}\n${centro('CUPOM NÃO FISCAL')}\n${line}\nVenda: ${v.id}\nData: ${dataBR(v.data)}\n${v.operador ? `Caixa: ${v.operador}\n` : ''}${line}\n`;
   v.itens.forEach((i) => { t += `${i.nome.slice(0, L)}\n${pad(`  ${num(i.quantidade)} x ${brl(i.preco_unit)}`, brl(i.total))}\n`; });
   t += `${line}\n${pad('Subtotal', brl(v.subtotal))}\n`;
   if (v.desconto) t += `${pad('Desconto', '-' + brl(v.desconto))}\n`;
@@ -281,11 +285,11 @@ async function carregarVendas() {
   const porForma = {};
   ok.forEach((v) => (porForma[v.forma_pagamento] = (porForma[v.forma_pagamento] || 0) + v.total));
   $('#vendasTotais').innerHTML = `<b>${ok.length}</b> vendas · <b>${brl(ok.reduce((s, v) => s + v.total, 0))}</b> · ` + Object.entries(porForma).map(([f, t]) => `${f}: ${brl(t)}`).join(' · ');
-  $('#tabVendas').innerHTML = `<tr><th>Data</th><th>Venda</th><th class="num">Itens</th><th>Pagamento</th><th class="num">Desconto</th><th class="num">Total</th><th>Status</th><th></th></tr>` +
-    (vendas.map((v) => `<tr class="${v.status}"><td>${dataBR(v.data)}</td><td class="muted">${v.id}</td><td class="num">${num(v.itens_qtd)}</td><td>${esc(v.forma_pagamento)}</td>
+  $('#tabVendas').innerHTML = `<tr><th>Data</th><th>Venda</th><th>Caixa</th><th class="num">Itens</th><th>Pagamento</th><th class="num">Desconto</th><th class="num">Total</th><th>Status</th><th></th></tr>` +
+    (vendas.map((v) => `<tr class="${v.status}"><td>${dataBR(v.data)}</td><td class="muted">${v.id}</td><td>${esc(v.operador) || '<span class="muted">—</span>'}</td><td class="num">${num(v.itens_qtd)}</td><td>${esc(v.forma_pagamento)}</td>
       <td class="num">${v.desconto ? brl(v.desconto) : '—'}</td><td class="num"><b>${brl(v.total)}</b></td>
       <td><span class="tag ${v.status === 'cancelada' ? 'red' : 'green'}">${v.status}</span></td><td class="num"><button class="btn sm" data-v="${v.id}">Ver</button></td></tr>`).join('') ||
-      '<tr><td colspan="8" class="vazio">Nenhuma venda no período</td></tr>');
+      '<tr><td colspan="9" class="vazio">Nenhuma venda no período</td></tr>');
 }
 $('#btnFiltrarVendas').addEventListener('click', carregarVendas);
 $('#tabVendas').addEventListener('click', async (e) => {
@@ -301,61 +305,130 @@ $('#tabVendas').addEventListener('click', async (e) => {
   });
 });
 
-/* ================= caixa ================= */
-async function atualizarBadge() {
-  try {
-    S.caixa = await api('/api/caixa');
-    const b = $('#caixaBadge');
-    b.className = 'badge ' + (S.caixa.aberto ? 'ok' : 'off');
-    b.textContent = S.caixa.aberto ? `● Caixa aberto · ${brl(S.caixa.totalVendas)}` : '● Caixa fechado';
-  } catch (e) { /* ignora */ }
+/* ================= caixa (vários caixas) ================= */
+// Cada computador lembra qual caixa está usando (localStorage). Vários caixas podem estar abertos ao mesmo tempo.
+const meuCaixa = () => (S.caixa && S.caixa.abertos.find((c) => c.caixa_id === S.caixaId)) || null;
+function usarCaixa(id) {
+  S.caixaId = id || '';
+  if (id) localStorage.setItem('caixaId', id); else localStorage.removeItem('caixaId');
+  renderBadge();
 }
-$('#caixaBadge').addEventListener('click', () => irPara('caixa'));
+
+async function atualizarBadge() {
+  try { S.caixa = await api('/api/caixa'); } catch (e) { return; }
+  if (S.caixaId && !meuCaixa()) usarCaixa(''); // caixa foi fechado
+  renderBadge();
+}
+function renderBadge() {
+  const b = $('#caixaBadge'), op = $('#pdvOperador'), m = meuCaixa(), n = S.caixa ? S.caixa.abertos.length : 0;
+  if (m) {
+    b.className = 'badge ok'; b.textContent = `● ${m.operador} · ${brl(m.totalVendas)}`;
+    op.className = 'operador'; op.textContent = `Caixa: ${m.operador} ▾`;
+  } else if (n) {
+    b.className = 'badge escolher'; b.textContent = `● Escolher caixa (${n} aberto${n > 1 ? 's' : ''})`;
+    op.className = 'operador falta'; op.textContent = 'Escolher caixa ▾';
+  } else {
+    b.className = 'badge off'; b.textContent = '● Nenhum caixa aberto';
+    op.className = 'operador falta'; op.textContent = 'Abrir caixa ▸';
+  }
+}
+function escolherCaixa(paraVender) {
+  const abertos = S.caixa ? S.caixa.abertos : [];
+  if (!abertos.length) { if (paraVender) toast('Abra um caixa antes de vender', true); return irPara('caixa'); }
+  modal(`<h3>Em qual caixa você está?</h3>
+    <p class="muted">${paraVender ? 'Escolha o caixa para registrar esta venda. ' : ''}Este computador vai lembrar da escolha.</p>
+    <div class="lista-caixas">${abertos.map((c) => `<button data-cx="${c.caixa_id}" class="${c.caixa_id === S.caixaId ? 'sel' : ''}">
+      <span><span class="nm">${esc(c.operador)}</span><br><span class="muted">aberto ${dataBR(c.abertura.data)} · ${c.vendasQtd} vendas</span></span><b>${brl(c.totalVendas)}</b></button>`).join('')}</div>
+    <div class="modal-acoes"><button class="btn" id="cxNovo" style="margin-right:auto">+ Abrir outro caixa</button><button class="btn" onclick="fecharModal()">Cancelar</button></div>`);
+  $$('.lista-caixas button').forEach((bt) => bt.addEventListener('click', () => {
+    usarCaixa(bt.dataset.cx); fecharModal(); toast('Usando o caixa de ' + meuCaixa().operador);
+    if (paraVender) finalizar(); else if ($('#tab-caixa').classList.contains('active')) carregarCaixa(); else $('#pdvBusca').focus();
+  }));
+  $('#cxNovo').addEventListener('click', () => { fecharModal(); irPara('caixa'); $('#abNome').focus(); });
+  setTimeout(() => { const f = $('.lista-caixas button.sel') || $('.lista-caixas button'); f && f.focus(); }, 50);
+}
+$('#caixaBadge').addEventListener('click', () => (S.caixa && S.caixa.abertos.length ? escolherCaixa() : irPara('caixa')));
 $('#caixaBadge').style.cursor = 'pointer';
+$('#pdvOperador').addEventListener('click', () => escolherCaixa());
+
+function tabelaCaixa(c) {
+  return `<table>
+    <tr><td>Fundo de troco</td><td class="num">${brl(c.abertura.valor)}</td></tr>
+    <tr><td>Vendas (${c.vendasQtd})</td><td class="num"><b>${brl(c.totalVendas)}</b></td></tr>
+    ${Object.entries(c.porForma).map(([f, t]) => `<tr><td class="muted">&nbsp;&nbsp;${esc(f)}</td><td class="num muted">${brl(t)}</td></tr>`).join('')}
+    ${c.suprimentos ? `<tr><td>Suprimentos</td><td class="num">+ ${brl(c.suprimentos)}</td></tr>` : ''}
+    ${c.sangrias ? `<tr><td>Sangrias</td><td class="num">− ${brl(c.sangrias)}</td></tr>` : ''}
+    <tr><td><b>Dinheiro esperado na gaveta</b></td><td class="num"><b style="font-size:17px;color:var(--azul)">${brl(c.esperadoDinheiro)}</b></td></tr>
+  </table>`;
+}
 
 async function carregarCaixa() {
   await atualizarBadge();
-  const c = S.caixa;
-  const ops = c.aberto ? [['suprimento', 'Suprimento (entrada de dinheiro)'], ['sangria', 'Sangria (retirada de dinheiro)'], ['fechamento', 'Fechar caixa']] : [['abertura', 'Abrir caixa']];
-  $('#cxTipo').innerHTML = ops.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
-  labelCaixa();
-  if (!c.aberto) {
-    $('#caixaStatus').innerHTML = `<h3>Caixa fechado</h3><p class="muted">Abra o caixa informando o valor de troco inicial na gaveta.</p>` +
-      (c.ultimoFechamento ? `<p class="muted"><b>Último fechamento:</b> ${dataBR(c.ultimoFechamento.data)}<br>${esc(c.ultimoFechamento.obs)}</p>` : '');
-    return;
-  }
-  $('#caixaStatus').innerHTML = `<h3>Caixa aberto desde ${dataBR(c.abertura.data)}</h3>
-    <table>
-      <tr><td>Fundo de troco (abertura)</td><td class="num">${brl(c.abertura.valor)}</td></tr>
-      <tr><td>Vendas (${c.vendasQtd})</td><td class="num"><b>${brl(c.totalVendas)}</b></td></tr>
-      ${Object.entries(c.porForma).map(([f, t]) => `<tr><td class="muted">&nbsp;&nbsp;${esc(f)}</td><td class="num muted">${brl(t)}</td></tr>`).join('')}
-      <tr><td>Suprimentos</td><td class="num">+ ${brl(c.suprimentos)}</td></tr>
-      <tr><td>Sangrias</td><td class="num">− ${brl(c.sangrias)}</td></tr>
-      <tr><td><b>Dinheiro esperado na gaveta</b></td><td class="num"><b style="font-size:18px;color:var(--pri)">${brl(c.esperadoDinheiro)}</b></td></tr>
-    </table>`;
+  const { abertos, fechadosHoje, totalAbertos } = S.caixa;
+  $('#caixasAbertos').innerHTML = `<h3>Caixas abertos</h3>` + (abertos.length ? `
+    ${abertos.length > 1 ? `<div class="total-geral"><span>Total dos ${abertos.length} caixas abertos</span><b>${brl(totalAbertos)}</b></div>` : ''}
+    ${abertos.map((c) => { const meu = c.caixa_id === S.caixaId; return `<div class="cx ${meu ? 'meu' : ''}">
+      <div class="cx-topo"><span class="cx-nome">${esc(c.operador)}</span>
+        ${meu ? '<span class="tag green">Neste computador</span>' : `<button class="btn sm" data-usar="${c.caixa_id}">Usar neste computador</button>`}</div>
+      <div class="muted" style="margin-bottom:6px">Aberto em ${dataBR(c.abertura.data)}</div>
+      ${tabelaCaixa(c)}
+      <div class="cx-acoes">
+        <button class="btn sm" data-op="suprimento" data-cx="${c.caixa_id}">+ Suprimento</button>
+        <button class="btn sm" data-op="sangria" data-cx="${c.caixa_id}">− Sangria</button>
+        <button class="btn sm primary" data-op="fechamento" data-cx="${c.caixa_id}">Fechar caixa</button>
+      </div></div>`; }).join('')}`
+    : '<div class="vazio">Nenhum caixa aberto.<br><span class="muted">Abra um caixa ao lado para começar a vender.</span></div>');
+
+  $('#tabFechados').innerHTML = `<tr><th>Operador</th><th>Aberto</th><th>Fechado</th><th class="num">Vendas</th><th class="num">Total vendido</th><th class="num">Esperado</th><th class="num">Contado</th><th class="num">Diferença</th></tr>` +
+    (fechadosHoje.map((c) => `<tr><td><b>${esc(c.operador)}</b></td><td>${dataBR(c.abertura.data)}</td><td>${dataBR(c.fechamento.data)}</td>
+      <td class="num">${c.vendasQtd}</td><td class="num"><b>${brl(c.totalVendas)}</b></td><td class="num">${brl(c.esperadoDinheiro)}</td><td class="num">${brl(c.contado)}</td>
+      <td class="num"><span class="tag ${c.diferenca < 0 ? 'red' : c.diferenca > 0 ? 'amber' : 'green'}">${brl(c.diferenca)}</span></td></tr>`).join('') ||
+      '<tr><td colspan="8" class="vazio">Nenhum caixa fechado hoje</td></tr>');
 }
-function labelCaixa() {
-  const t = $('#cxTipo').value;
-  $('#cxValorLabel').textContent = { abertura: 'Fundo de troco (R$)', suprimento: 'Valor do suprimento (R$)', sangria: 'Valor retirado (R$)', fechamento: 'Dinheiro contado na gaveta (R$)' }[t];
-}
-$('#cxTipo').addEventListener('change', labelCaixa);
-$('#formCaixa').addEventListener('submit', async (e) => {
+
+$('#caixasAbertos').addEventListener('click', (e) => {
+  const u = e.target.closest('[data-usar]');
+  if (u) { usarCaixa(u.dataset.usar); toast('Usando o caixa de ' + meuCaixa().operador); return carregarCaixa(); }
+  const b = e.target.closest('[data-op]'); if (!b) return;
+  const c = S.caixa.abertos.find((x) => x.caixa_id === b.dataset.cx); if (!c) return;
+  const tipo = b.dataset.op;
+  const titulo = { suprimento: 'Suprimento (entrada de dinheiro)', sangria: 'Sangria (retirada de dinheiro)', fechamento: 'Fechar caixa' }[tipo];
+  const label = { suprimento: 'Valor colocado na gaveta (R$)', sangria: 'Valor retirado (R$)', fechamento: 'Dinheiro contado na gaveta (R$)' }[tipo];
+  modal(`<h3>${titulo} — ${esc(c.operador)}</h3>
+    ${tipo === 'fechamento' ? `<p class="muted">Conte o dinheiro da gaveta e informe abaixo. Vendido neste caixa: <b>${brl(c.totalVendas)}</b> (${c.vendasQtd} vendas).</p>` : ''}
+    <form id="fOpCaixa">
+      <label>${label}<input id="opValor" type="number" step="0.01" min="0" required></label>
+      <label>Observação<input id="opObs"></label>
+      <div class="modal-acoes"><button type="button" class="btn" onclick="fecharModal()">Cancelar</button><button class="btn primary">Confirmar</button></div>
+    </form>`);
+  setTimeout(() => $('#opValor').focus(), 50);
+  $('#fOpCaixa').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try {
+      const r = await api('/api/caixa', { method: 'POST', body: { tipo, caixa_id: c.caixa_id, valor: $('#opValor').value, obs: $('#opObs').value } });
+      if (r.resumo) {
+        const d = r.resumo.diferenca;
+        if (c.caixa_id === S.caixaId) usarCaixa('');
+        modal(`<h3>Caixa de ${esc(c.operador)} fechado</h3><table>
+          <tr><td>Total de vendas</td><td class="num"><b>${brl(r.resumo.totalVendas)}</b> (${r.resumo.vendasQtd})</td></tr>
+          ${Object.entries(r.resumo.porForma).map(([f, t]) => `<tr><td>${esc(f)}</td><td class="num">${brl(t)}</td></tr>`).join('')}
+          <tr><td>Dinheiro esperado</td><td class="num">${brl(r.resumo.esperadoDinheiro)}</td></tr>
+          <tr><td>Dinheiro contado</td><td class="num">${brl(r.resumo.contado)}</td></tr>
+          <tr><td><b>Diferença</b></td><td class="num"><b style="color:${d < 0 ? 'var(--red)' : 'var(--azul)'}">${brl(d)}</b></td></tr></table>
+          <div class="modal-acoes"><button class="btn primary" onclick="fecharModal()">OK</button></div>`);
+      } else { fecharModal(); toast('Operação registrada'); }
+      carregarCaixa();
+    } catch (err) { toast(err.message, true); }
+  });
+});
+
+$('#formAbrir').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const tipo = $('#cxTipo').value;
-  if (tipo === 'fechamento' && !confirm('Confirmar fechamento do caixa?')) return;
   try {
-    const r = await api('/api/caixa', { method: 'POST', body: { tipo, valor: $('#cxValor').value, obs: $('#cxObs').value } });
-    $('#cxValor').value = ''; $('#cxObs').value = '';
-    if (r.resumo) {
-      const d = r.resumo.diferenca;
-      modal(`<h3>Caixa fechado</h3><table>
-        <tr><td>Total de vendas</td><td class="num"><b>${brl(r.resumo.totalVendas)}</b> (${r.resumo.vendasQtd})</td></tr>
-        ${Object.entries(r.resumo.porForma).map(([f, t]) => `<tr><td>${esc(f)}</td><td class="num">${brl(t)}</td></tr>`).join('')}
-        <tr><td>Dinheiro esperado</td><td class="num">${brl(r.resumo.esperadoDinheiro)}</td></tr>
-        <tr><td>Dinheiro contado</td><td class="num">${brl(r.resumo.contado)}</td></tr>
-        <tr><td><b>Diferença</b></td><td class="num"><b style="color:${d < 0 ? 'var(--red)' : 'var(--pri)'}">${brl(d)}</b></td></tr></table>
-        <div class="modal-acoes"><button class="btn primary" onclick="fecharModal()">OK</button></div>`);
-    } else toast('Operação registrada');
+    const r = await api('/api/caixa', { method: 'POST', body: { tipo: 'abertura', operador: $('#abNome').value, valor: $('#abValor').value, obs: $('#abObs').value } });
+    $('#abNome').value = ''; $('#abValor').value = 0; $('#abObs').value = '';
+    await atualizarBadge(); usarCaixa(r.caixa_id);
+    toast(`Caixa de ${r.operador} aberto`);
     carregarCaixa();
   } catch (err) { toast(err.message, true); }
 });
@@ -381,7 +454,7 @@ async function iniciar() {
     $('#app').classList.remove('hidden');
     await Promise.all([carregarProdutos(), atualizarBadge()]);
     renderCarrinho();
-    if (S.config.exigirCaixa && S.caixa && !S.caixa.aberto) toast('Caixa fechado — abra na aba Caixa para vender');
+    if (S.config.exigirCaixa && S.caixa && !meuCaixa()) toast(S.caixa.abertos.length ? 'Escolha em qual caixa você está (botão no topo)' : 'Nenhum caixa aberto — abra na aba Caixa para vender');
     $('#pdvBusca').focus();
   } catch (e) { if (e.message !== 'Faça login') toast(e.message, true); }
 }

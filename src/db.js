@@ -4,10 +4,11 @@ const path = require('path');
 
 const SCHEMA = {
   Produtos: ['id', 'codigo', 'nome', 'categoria', 'preco_custo', 'preco_venda', 'estoque', 'estoque_minimo', 'unidade', 'ativo', 'atualizado_em'],
-  Vendas: ['id', 'data', 'subtotal', 'desconto', 'total', 'forma_pagamento', 'valor_recebido', 'troco', 'itens_qtd', 'status', 'obs'],
+  // caixa_id / operador ficam no fim para não desalinhar planilhas já existentes
+  Vendas: ['id', 'data', 'subtotal', 'desconto', 'total', 'forma_pagamento', 'valor_recebido', 'troco', 'itens_qtd', 'status', 'obs', 'caixa_id', 'operador'],
   ItensVenda: ['venda_id', 'data', 'produto_id', 'codigo', 'nome', 'quantidade', 'preco_unit', 'total'],
   Movimentacoes: ['id', 'data', 'produto_id', 'nome', 'tipo', 'quantidade', 'estoque_apos', 'motivo'],
-  Caixa: ['id', 'data', 'tipo', 'valor', 'obs'],
+  Caixa: ['id', 'data', 'tipo', 'valor', 'obs', 'caixa_id', 'operador'],
 };
 
 const NUMERIC = new Set(['preco_custo', 'preco_venda', 'estoque', 'estoque_minimo', 'subtotal', 'desconto', 'total',

@@ -14,6 +14,14 @@ Um sistema de PDV (frente de caixa) e controle de estoque bem simples, que usa o
 - **Painel**: vendas do dia, ticket médio, lucro estimado, gráfico dos últimos 7 dias, mais vendidos e alertas de estoque baixo.
 - Login por senha.
 
+### Vários caixas ao mesmo tempo
+
+- Na aba **Caixa**, cada pessoa abre o próprio caixa informando **o nome** e o fundo de troco. Podem ficar vários abertos ao mesmo tempo (não pode haver dois abertos com o mesmo nome).
+- Cada computador lembra qual caixa está usando. O botão no topo (ou "Caixa: Nome ▾" no carrinho) troca de caixa. Se nenhum estiver escolhido, ao finalizar a venda o sistema pergunta em qual caixa registrar.
+- Cada caixa tem as próprias sangrias, suprimentos e fechamento com conferência. A aba Caixa mostra quanto cada pessoa vendeu e a tabela **Caixas fechados hoje** (esperado × contado × diferença).
+- O **Painel** continua mostrando sempre o total geral, somando todos os caixas. A aba **Vendas** ganhou a coluna "Caixa" com o nome do operador.
+- Na planilha, as abas `Caixa` e `Vendas` ganharam as colunas `caixa_id` e `operador` no final (o cabeçalho é atualizado sozinho; dados antigos continuam valendo).
+
 ## Abas criadas automaticamente na planilha
 
 | Aba | Conteúdo |

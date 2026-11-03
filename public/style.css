@@ -96,6 +96,27 @@ label input, label select { margin-top: 4px; }
 .acoes { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 10px; }
 #btnFinalizar { font-size: 17px; padding: 14px; }
 
+/* caixas */
+.carrinho-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.operador { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--ouro-soft); color: var(--azul); border-radius: 99px; padding: 5px 12px; cursor: pointer; white-space: nowrap; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+.operador:hover { border-color: var(--ouro); }
+.operador.falta { background: var(--amber-soft); color: var(--amber); border-color: #ecd29a; font-weight: 700; }
+.cols-caixa { grid-template-columns: 1.5fr 1fr; margin-bottom: 16px; }
+.total-geral { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--pri-soft); margin-bottom: 14px; }
+.total-geral b { font-size: 22px; color: var(--azul); }
+.cx { border: 1px solid var(--line); border-left: 4px solid var(--ouro); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: #fff; }
+.cx.meu { border-color: var(--azul-2); border-left-color: var(--azul-2); box-shadow: 0 0 0 3px var(--pri-soft); }
+.cx-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.cx-nome { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--azul); }
+.cx table td { padding: 5px 8px; }
+.cx-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.cx-acoes .btn:last-child { margin-left: auto; }
+.lista-caixas { display: grid; gap: 8px; margin: 10px 0; }
+.lista-caixas button { display: flex; justify-content: space-between; align-items: center; text-align: left; font: inherit; padding: 12px 14px; border: 1px solid var(--line); border-left: 4px solid var(--ouro); border-radius: 10px; background: #fff; cursor: pointer; }
+.lista-caixas button:hover, .lista-caixas button.sel { border-color: var(--azul-2); box-shadow: 0 0 0 3px var(--pri-soft); }
+.lista-caixas .nm { font-family: var(--serif); font-size: 20px; font-weight: 700; color: var(--azul); }
+.badge.escolher { background: var(--ouro-claro); color: var(--azul-escuro); border-color: var(--ouro); font-weight: 700; }
+
 /* painel */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .kpi { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); border-top: 3px solid var(--ouro); }

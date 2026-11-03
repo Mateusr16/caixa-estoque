@@ -59,7 +59,10 @@
             <div id="pdvGrid" class="grid"></div>
           </div>
           <div class="pdv-right card">
-            <h3>Carrinho</h3>
+            <div class="carrinho-topo">
+              <h3>Carrinho</h3>
+              <button type="button" id="pdvOperador" class="operador" title="Trocar de caixa">—</button>
+            </div>
             <div id="carrinho" class="carrinho"></div>
             <div class="totais">
               <div class="linha"><span>Subtotal</span><span id="cSubtotal">R$ 0,00</span></div>
@@ -138,16 +141,18 @@
 
       <!-- Caixa -->
       <section id="tab-caixa" class="tab">
-        <div class="cols">
-          <div class="card" id="caixaStatus"></div>
-          <form id="formCaixa" class="card">
-            <h3 id="caixaAcaoTitulo">Operação</h3>
-            <label>Operação<select id="cxTipo"></select></label>
-            <label><span id="cxValorLabel">Valor (R$)</span><input id="cxValor" type="number" step="0.01" min="0" required /></label>
-            <label>Observação<input id="cxObs" /></label>
-            <button class="btn primary full">Confirmar</button>
+        <div class="cols cols-caixa">
+          <div class="card" id="caixasAbertos"></div>
+          <form id="formAbrir" class="card">
+            <h3>Abrir novo caixa</h3>
+            <p class="muted">Cada pessoa abre o seu caixa com o próprio nome. Assim dá para saber quanto cada uma vendeu. No Painel, tudo aparece somado.</p>
+            <label>Nome de quem vai operar<input id="abNome" required maxlength="40" placeholder="Ex.: Maria" autocomplete="off" /></label>
+            <label>Fundo de troco na gaveta (R$)<input id="abValor" type="number" step="0.01" min="0" value="0" required /></label>
+            <label>Observação<input id="abObs" placeholder="Opcional" /></label>
+            <button class="btn primary full">Abrir caixa e usar neste computador</button>
           </form>
         </div>
+        <div class="card table-wrap"><h3>Caixas fechados hoje</h3><table id="tabFechados"></table></div>
       </section>
     </main>
     <footer class="rodape">Paróquia Nossa Senhora do Líbano · Carmo do Cajuru – MG &nbsp;✦&nbsp; <em>Nossa Senhora do Líbano, rogai por nós.</em></footer>
