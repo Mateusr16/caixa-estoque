@@ -140,12 +140,13 @@ label input, label select { margin-top: 4px; }
 .toolbar input:not([type=date]) { max-width: 360px; }
 .toolbar label { display: flex; align-items: center; gap: 6px; margin: 0; }
 .toolbar label input { margin: 0; }
-.toolbar label select { margin: 0; width: auto; }
-.toolbar > select { max-width: 260px; margin: 0; }
 #prodContagem { margin-left: auto; }
 .rel-print { display: none; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th.ord { cursor: pointer; user-select: none; white-space: nowrap; }
+th.ord:hover { color: var(--ouro); }
+th.ord.on { color: var(--azul); }
 th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--azul-2); font-weight: 700; padding: 8px 10px; border-bottom: 2px solid var(--ouro-claro); }
 tr:hover td { background: #fbf7ec; }
 td { padding: 9px 10px; border-bottom: 1px solid var(--line); }
@@ -259,9 +260,11 @@ tr.cancelada td { color: var(--muted); text-decoration: line-through; }
   .toolbar > .btn { flex: 1 1 auto; }
   .toolbar label { flex: 1 1 40%; }
   .toolbar label input { min-width: 0; }
-  .toolbar label.filtro-col { flex: 1 1 100%; }
-  .toolbar label.filtro-col select { flex: 1; }
-  .toolbar > select { max-width: none; flex: 1 1 100%; }
+  /* No celular o cabeçalho de Produtos vira uma fileira de botões de ordenação */
+  #tabProdutos.resp tr.cab { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 10px; border-bottom: 1px solid var(--line); }
+  #tabProdutos.resp tr.cab th { border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; background: #fff; text-align: left; }
+  #tabProdutos.resp tr.cab th.on { background: var(--azul); color: #fff; border-color: var(--azul); }
+  #tabProdutos.resp tr.cab th:empty { display: none; }
   #prodContagem { margin-left: 0; flex: 1 1 100%; }
   #vendasTotais { flex-basis: 100%; line-height: 1.5; }
 

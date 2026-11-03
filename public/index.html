@@ -100,26 +100,7 @@
       <!-- Produtos -->
       <section id="tab-produtos" class="tab">
         <div class="toolbar">
-          <label class="filtro-col">Filtrar por
-            <select id="prodColuna">
-              <option value="todas">Todas as colunas</option>
-              <option value="codigo">Código</option>
-              <option value="nome">Produto</option>
-              <option value="categoria">Categoria</option>
-              <option value="preco_custo">Custo</option>
-              <option value="preco_venda">Venda</option>
-              <option value="margem">Margem (%)</option>
-              <option value="estoque">Estoque</option>
-              <option value="situacao">Situação do estoque</option>
-            </select>
-          </label>
-          <input id="prodBusca" placeholder="Buscar produto..." autocomplete="off" />
-          <select id="prodSituacao" class="hidden">
-            <option value="">Todas</option>
-            <option value="zerado">Zerado</option>
-            <option value="baixo">Baixo (no mínimo ou abaixo)</option>
-            <option value="ok">Normal</option>
-          </select>
+          <input id="prodBusca" placeholder="Buscar por código, nome ou categoria..." autocomplete="off" />
           <span id="prodContagem" class="muted"></span>
           <button id="btnNovoProd" class="btn primary">+ Novo produto</button>
         </div>

@@ -34,7 +34,7 @@ function rotular(alvo, principal = -1) {
   let cab = [];
   t.querySelectorAll('tr').forEach((tr) => {
     const cells = [...tr.children];
-    if (cells.length && cells.every((c) => c.tagName === 'TH')) { tr.classList.add('cab'); cab = cells.map((c) => c.textContent.trim()); return; }
+    if (cells.length && cells.every((c) => c.tagName === 'TH')) { tr.classList.add('cab'); cab = cells.map((c) => c.textContent.replace(/[▲▼]/g, '').trim()); return; }
     cells.forEach((td, i) => { td.dataset.label = td.colSpan > 1 ? '' : cab[i] || ''; if (i === principal) td.classList.add('pri'); });
   });
   t.classList.add('resp');
@@ -210,40 +210,34 @@ document.addEventListener('keydown', (e) => {
 
 /* ================= produtos ================= */
 const margemDe = (p) => (p.preco_venda && p.preco_custo ? ((p.preco_venda - p.preco_custo) / p.preco_venda) * 100 : 0);
-const situacaoDe = (p) => (p.estoque <= 0 ? 'zerado' : p.estoque <= p.estoque_minimo ? 'baixo' : 'ok');
-const COLS_NUM = ['preco_custo', 'preco_venda', 'margem', 'estoque'];
 const semAcento = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-// Para colunas de número aceita: 10 · >10 · <5 · >=2 · <=8 · 5-10 (faixa)
-function filtroNumero(valor, q) {
-  q = q.replace(/\s/g, '').replace(/,/g, '.');
-  let m = q.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/);
-  if (m) { const a = Number(m[1]), b = Number(m[2]); return valor >= Math.min(a, b) && valor <= Math.max(a, b); }
-  m = q.match(/^(>=|<=|>|<|=)?(-?\d+(?:\.\d+)?)$/);
-  if (!m) return true;
-  const n = Number(m[2]);
-  return { '>': valor > n, '<': valor < n, '>=': valor >= n, '<=': valor <= n }[m[1]] ?? Math.abs(valor - n) < 0.005;
+// Ordenação clicando no cabeçalho: 1º clique = texto A→Z / número do maior para o menor; 2º clique inverte.
+const COLUNAS_PROD = [
+  { k: 'codigo', t: 'Código' }, { k: 'nome', t: 'Produto' }, { k: 'categoria', t: 'Categoria' },
+  { k: 'preco_custo', t: 'Custo', n: 1 }, { k: 'preco_venda', t: 'Venda', n: 1 }, { k: 'margem', t: 'Margem', n: 1 }, { k: 'estoque', t: 'Estoque', n: 1 },
+];
+let ordemProd = (() => { try { return JSON.parse(localStorage.getItem('ordemProd')) || {}; } catch (e) { return {}; } })();
+const valorCol = (p, k) => (k === 'margem' ? margemDe(p) : p[k]);
+function ordenarProd(lista) {
+  const c = COLUNAS_PROD.find((x) => x.k === ordemProd.k); if (!c) return lista;
+  const d = ordemProd.d === 'asc' ? 1 : -1;
+  return [...lista].sort((a, b) => d * (c.n ? (Number(valorCol(a, c.k)) || 0) - (Number(valorCol(b, c.k)) || 0)
+    : String(valorCol(a, c.k) ?? '').localeCompare(String(valorCol(b, c.k) ?? ''), 'pt-BR', { numeric: true, sensitivity: 'base' })));
 }
-const DICAS = { todas: 'Buscar em todas as colunas...', codigo: 'Digite o código...', nome: 'Digite o nome do produto...', categoria: 'Digite a categoria...',
-  preco_custo: 'Ex.: 10 · >10 · <5 · 5-10', preco_venda: 'Ex.: 10 · >10 · <5 · 5-10', margem: 'Ex.: >30 · <20 · 20-40', estoque: 'Ex.: 0 · <5 · >=10 · 1-20' };
-function prodColunaMudou() {
-  const col = $('#prodColuna').value, sit = col === 'situacao';
-  $('#prodBusca').classList.toggle('hidden', sit); $('#prodSituacao').classList.toggle('hidden', !sit);
-  $('#prodBusca').placeholder = DICAS[col] || '';
-  $('#prodBusca').inputMode = COLS_NUM.includes(col) ? 'decimal' : 'text';
+function clicarCabecalho(k) {
+  const c = COLUNAS_PROD.find((x) => x.k === k); if (!c) return;
+  const primeira = c.n ? 'desc' : 'asc';
+  ordemProd = ordemProd.k === k ? { k, d: ordemProd.d === 'asc' ? 'desc' : 'asc' } : { k, d: primeira };
+  try { localStorage.setItem('ordemProd', JSON.stringify(ordemProd)); } catch (e) {}
   renderProdutos();
 }
 function renderProdutos() {
-  const col = $('#prodColuna').value, q = semAcento($('#prodBusca').value.trim()), sit = $('#prodSituacao').value;
-  const lista = S.produtos.filter((p) => {
-    if (col === 'situacao') return !sit || situacaoDe(p) === sit;
-    if (!q) return true;
-    if (col === 'todas') return [p.codigo, p.nome, p.categoria].some((v) => semAcento(v).includes(q));
-    if (COLS_NUM.includes(col)) return filtroNumero(col === 'margem' ? margemDe(p) : Number(p[col]) || 0, q);
-    return semAcento(p[col]).includes(q);
-  });
-  const filtrando = col === 'situacao' ? !!sit : !!q;
-  $('#prodContagem').textContent = filtrando ? `${lista.length} de ${S.produtos.length} produtos` : `${S.produtos.length} produtos`;
-  $('#tabProdutos').innerHTML = `<tr><th>Código</th><th>Produto</th><th>Categoria</th><th class="num">Custo</th><th class="num">Venda</th><th class="num">Margem</th><th class="num">Estoque</th><th></th></tr>` +
+  const q = semAcento($('#prodBusca').value.trim());
+  const lista = ordenarProd(S.produtos.filter((p) => !q || [p.codigo, p.nome, p.categoria].some((v) => semAcento(v).includes(q))));
+  $('#prodContagem').textContent = q ? `${lista.length} de ${S.produtos.length} produtos` : `${S.produtos.length} produtos`;
+  const seta = (k) => (ordemProd.k === k ? (ordemProd.d === 'asc' ? ' ▲' : ' ▼') : '');
+  const cab = `<tr>${COLUNAS_PROD.map((c) => `<th class="ord${c.n ? ' num' : ''}${ordemProd.k === c.k ? ' on' : ''}" data-ord="${c.k}" title="Clique para ordenar">${c.t}${seta(c.k)}</th>`).join('')}<th></th></tr>`;
+  $('#tabProdutos').innerHTML = cab +
     (lista.map((p) => {
       const margem = margemDe(p);
       const tag = p.estoque <= 0 ? 'red' : p.estoque <= p.estoque_minimo ? 'amber' : 'green';
@@ -255,10 +249,10 @@ function renderProdutos() {
   rotular('#tabProdutos', 1);
 }
 $('#prodBusca').addEventListener('input', renderProdutos);
-$('#prodColuna').addEventListener('change', prodColunaMudou);
-$('#prodSituacao').addEventListener('change', renderProdutos);
+
 $('#btnNovoProd').addEventListener('click', () => formProduto());
 $('#tabProdutos').addEventListener('click', (e) => {
+  const th = e.target.closest('th[data-ord]'); if (th) return clicarCabecalho(th.dataset.ord);
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.edit) formProduto(S.produtos.find((p) => p.id === b.dataset.edit));
   if (b.dataset.mov) { irPara('estoque'); $('#movProduto').value = b.dataset.mov; infoMov(); $('#movQtd').focus(); }
