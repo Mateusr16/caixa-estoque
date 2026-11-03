@@ -164,14 +164,15 @@ $('#btnFinalizar').addEventListener('click', finalizar);
 function textoCupom(v) {
   const L = 40, line = '-'.repeat(L);
   const pad = (a, b) => a + ' '.repeat(Math.max(1, L - a.length - b.length)) + b;
-  let t = `${'CUPOM NÃO FISCAL'.padStart(28)}\n${line}\nVenda: ${v.id}\nData: ${dataBR(v.data)}\n${line}\n`;
+  const centro = (x) => ' '.repeat(Math.max(0, Math.floor((L - x.length) / 2))) + x;
+  let t = `${centro('PARÓQUIA')}\n${centro('NOSSA SENHORA DO LÍBANO')}\n${centro('Carmo do Cajuru - MG')}\n${line}\n${centro('CUPOM NÃO FISCAL')}\n${line}\nVenda: ${v.id}\nData: ${dataBR(v.data)}\n${line}\n`;
   v.itens.forEach((i) => { t += `${i.nome.slice(0, L)}\n${pad(`  ${num(i.quantidade)} x ${brl(i.preco_unit)}`, brl(i.total))}\n`; });
   t += `${line}\n${pad('Subtotal', brl(v.subtotal))}\n`;
   if (v.desconto) t += `${pad('Desconto', '-' + brl(v.desconto))}\n`;
   t += `${pad('TOTAL', brl(v.total))}\n${pad('Pagamento', v.forma_pagamento)}\n`;
   if (v.forma_pagamento === 'Dinheiro') t += `${pad('Recebido', brl(v.valor_recebido))}\n${pad('Troco', brl(v.troco))}\n`;
   if (v.status === 'cancelada') t += `\n*** VENDA CANCELADA ***\n`;
-  return t + `${line}\n${'Obrigado pela preferência!'.padStart(33)}`;
+  return t + `${line}\n${centro('Obrigado pela sua colaboração!')}\n${centro('Deus lhe abençoe.')}`;
 }
 function mostrarCupom(v, extra = '') {
   modal(`<h3>✅ Venda ${v.status === 'cancelada' ? '(cancelada)' : 'registrada'} — ${brl(v.total)}</h3>

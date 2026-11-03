@@ -3,15 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Caixa & Estoque</title>
+  <title>Caixa · Paróquia Nossa Senhora do Líbano</title>
+  <meta name="theme-color" content="#14305e" />
+  <link rel="icon" type="image/svg+xml" href="/brasao.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <!-- Login -->
   <div id="login" class="login hidden">
     <form id="loginForm" class="login-box">
-      <div class="logo big">◆ Caixa</div>
-      <p class="muted">Digite a senha para entrar</p>
+      <img src="/brasao.svg" alt="" class="brasao-login" />
+      <div class="login-titulo">
+        <span class="pre">Paróquia</span>
+        <span class="nome">Nossa Senhora do Líbano</span>
+        <span class="cidade">Carmo do Cajuru · MG</span>
+      </div>
+      <div class="ornamento"><span>✦</span></div>
+      <p class="muted">Sistema de Caixa e Estoque<br>Digite a senha para entrar</p>
       <input type="password" id="loginSenha" placeholder="Senha" autofocus />
       <button class="btn primary full">Entrar</button>
       <p id="loginErro" class="erro"></p>
@@ -20,7 +31,10 @@
 
   <div id="app" class="hidden">
     <header class="topbar">
-      <div class="logo">◆ Caixa</div>
+      <div class="logo">
+        <img src="/brasao.svg" alt="" />
+        <div class="logo-txt"><span class="nome">N. Sra. do Líbano</span><span class="sub">Paróquia · Carmo do Cajuru</span></div>
+      </div>
       <nav id="tabs">
         <button data-tab="pdv" class="active">PDV <kbd>F1</kbd></button>
         <button data-tab="painel">Painel</button>
@@ -136,6 +150,7 @@
         </div>
       </section>
     </main>
+    <footer class="rodape">Paróquia Nossa Senhora do Líbano · Carmo do Cajuru – MG &nbsp;✦&nbsp; <em>Nossa Senhora do Líbano, rogai por nós.</em></footer>
   </div>
 
   <!-- Modal -->

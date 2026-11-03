@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Paróquia Nossa Senhora do Líbano">
+  <defs>
+    <linearGradient id="ouro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3d98b"/>
+      <stop offset="1" stop-color="#c59a3a"/>
+    </linearGradient>
+    <radialGradient id="manto" cx=".5" cy=".4" r=".65">
+      <stop offset="0" stop-color="#2f5fa8"/>
+      <stop offset="1" stop-color="#14305e"/>
+    </radialGradient>
+    <path id="e" d="M0-3.2l.94 2.1 2.3.24-1.72 1.55.5 2.26L0 1.8l-2.02 1.15.5-2.26-1.72-1.55 2.3-.24z"/>
+  </defs>
+  <!-- disco -->
+  <circle cx="60" cy="60" r="57" fill="url(#manto)" stroke="url(#ouro)" stroke-width="4"/>
+  <circle cx="60" cy="60" r="50" fill="none" stroke="#f3d98b" stroke-opacity=".35" stroke-width="1"/>
+  <!-- 12 estrelas em arco -->
+  <g fill="#f3d98b" transform="translate(60 60)">
+    <use href="#e" transform="rotate(-110) translate(0 -43) rotate(110)"/>
+    <use href="#e" transform="rotate(-90) translate(0 -43) rotate(90)"/>
+    <use href="#e" transform="rotate(-70) translate(0 -43) rotate(70)"/>
+    <use href="#e" transform="rotate(-50) translate(0 -43) rotate(50)"/>
+    <use href="#e" transform="rotate(-30) translate(0 -43) rotate(30)"/>
+    <use href="#e" transform="rotate(30) translate(0 -43) rotate(-30)"/>
+    <use href="#e" transform="rotate(50) translate(0 -43) rotate(-50)"/>
+    <use href="#e" transform="rotate(70) translate(0 -43) rotate(-70)"/>
+    <use href="#e" transform="rotate(90) translate(0 -43) rotate(-90)"/>
+    <use href="#e" transform="rotate(110) translate(0 -43) rotate(-110)"/>
+    <use href="#e" transform="rotate(-10) translate(0 -43) rotate(10)"/>
+    <use href="#e" transform="rotate(10) translate(0 -43) rotate(-10)"/>
+  </g>
+  <!-- coroa -->
+  <path d="M47 33l4.5 5 4-7 4.5 6 4.5-6 4 7 4.5-5-2.5 10.5h-21z" fill="url(#ouro)"/>
+  <rect x="49.5" y="43.5" width="21" height="2.6" rx="1.2" fill="url(#ouro)"/>
+  <!-- cedro do Líbano -->
+  <g fill="url(#ouro)">
+    <path d="M60 49c-4 2.5-8 3.2-12 3.2 3 1.6 7.6 1.9 12 .9 4.4 1 9 .7 12-.9-4 0-8-.7-12-3.2z"/>
+    <path d="M60 55.5c-6 3.3-12.5 4.2-18.5 4.2 4.6 2.2 11.7 2.6 18.5 1.2 6.8 1.4 13.9 1 18.5-1.2-6 0-12.5-.9-18.5-4.2z"/>
+    <path d="M60 63.5c-8 4-16.5 5-24.5 5 6.2 2.8 15.5 3.2 24.5 1.4 9 1.8 18.3 1.4 24.5-1.4-8 0-16.5-1-24.5-5z"/>
+    <path d="M60 73c-9.6 4.6-19.6 5.6-29 5.6 7.3 3.2 18.4 3.7 29 1.6 10.6 2.1 21.7 1.6 29-1.6-9.4 0-19.4-1-29-5.6z"/>
+    <rect x="57.6" y="79" width="4.8" height="13" rx="1.2"/>
+    <path d="M48 93.5h24l-2.5 3H50.5z"/>
+  </g>
+</svg>
