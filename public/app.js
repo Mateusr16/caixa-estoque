@@ -76,10 +76,10 @@ function renderPDV() {
   $('#pdvCategorias').innerHTML = ['', ...cats].map((c) => `<button data-c="${esc(c)}" class="${c === S.categoria ? 'active' : ''}">${c ? esc(c) : 'Todos'}</button>`).join('');
   const lista = filtrados();
   $('#pdvGrid').innerHTML = lista.length ? lista.map((p, i) => `
-    <button class="prod ${p.estoque <= 0 ? 'zero' : ''} ${i === 0 && $('#pdvBusca').value ? 'sel' : ''}" data-id="${p.id}">
+    <button class="prod ${p.estoque <= 0 ? 'zero' : ''} ${i === 0 && $('#pdvBusca').value && p.estoque > 0 ? 'sel' : ''}" data-id="${p.id}" ${p.estoque <= 0 ? 'aria-disabled="true" title="Sem estoque"' : ''}>
       <div class="n">${esc(p.nome)}</div>
       <div class="p">${brl(p.preco_venda)}</div>
-      <div class="e">${p.codigo ? esc(p.codigo) + ' · ' : ''}${num(p.estoque)} ${esc(p.unidade || 'un')}</div>
+      <div class="e">${p.codigo ? esc(p.codigo) + ' · ' : ''}${p.estoque <= 0 ? '<b class="sem">Sem estoque</b>' : num(p.estoque) + ' ' + esc(p.unidade || 'un')}</div>
     </button>`).join('') : `<div class="vazio">Nenhum produto. ${S.produtos.length ? '' : 'Cadastre na aba <b>Produtos</b>.'}</div>`;
 }
 $('#pdvCategorias').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.categoria = b.dataset.c; renderPDV(); });
@@ -95,13 +95,15 @@ $('#pdvBusca').addEventListener('keydown', (e) => {
   const m = q.match(/^(\d+(?:[.,]\d+)?)\*(.+)$/);
   if (m) { qtd = Number(m[1].replace(',', '.')); codigo = m[2].trim(); }
   const exato = S.produtos.find((p) => p.codigo && p.codigo.toLowerCase() === codigo.toLowerCase());
-  const p = exato || filtrados()[0];
+  const p = exato || filtrados().find((x) => x.estoque > 0) || filtrados()[0];
   if (!p) return toast('Produto não encontrado', true);
   adicionar(p.id, qtd);
 });
 
 function adicionar(id, qtd) {
   const p = S.produtos.find((x) => x.id === id); if (!p) return;
+  // Produto com estoque zerado (ou negativo) não entra no carrinho.
+  if ((Number(p.estoque) || 0) <= 0) { toast(`${p.nome} está sem estoque`, true); $('#pdvBusca').value = ''; renderPDV(); return; }
   const q = qtd || Number($('#pdvQtd').value) || 1;
   const it = S.carrinho.find((i) => i.produto_id === id);
   const novaQtd = (it ? it.quantidade : 0) + q;
