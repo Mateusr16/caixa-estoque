@@ -76,10 +76,10 @@ function renderPDV() {
   $('#pdvCategorias').innerHTML = ['', ...cats].map((c) => `<button data-c="${esc(c)}" class="${c === S.categoria ? 'active' : ''}">${c ? esc(c) : 'Todos'}</button>`).join('');
   const lista = filtrados();
   $('#pdvGrid').innerHTML = lista.length ? lista.map((p, i) => `
-    <button class="prod ${p.estoque <= 0 ? 'zero' : ''} ${i === 0 && $('#pdvBusca').value && p.estoque > 0 ? 'sel' : ''}" data-id="${p.id}" ${p.estoque <= 0 ? 'aria-disabled="true" title="Sem estoque"' : ''}>
+    <button class="prod ${disponivel(p) <= 0 ? 'zero' : ''} ${i === 0 && $('#pdvBusca').value && disponivel(p) > 0 ? 'sel' : ''}" data-id="${p.id}" ${disponivel(p) <= 0 ? `aria-disabled="true" title="${p.estoque <= 0 ? 'Sem estoque' : 'Todo o estoque já está no carrinho'}"` : ''}>
       <div class="n">${esc(p.nome)}</div>
       <div class="p">${brl(p.preco_venda)}</div>
-      <div class="e">${p.codigo ? esc(p.codigo) + ' · ' : ''}${p.estoque <= 0 ? '<b class="sem">Sem estoque</b>' : num(p.estoque) + ' ' + esc(p.unidade || 'un')}</div>
+      <div class="e">${p.codigo ? esc(p.codigo) + ' · ' : ''}${p.estoque <= 0 ? '<b class="sem">Sem estoque</b>' : disponivel(p) <= 0 ? '<b class="sem">Tudo no carrinho</b>' : num(p.estoque) + ' ' + esc(p.unidade || 'un')}</div>
     </button>`).join('') : `<div class="vazio">Nenhum produto. ${S.produtos.length ? '' : 'Cadastre na aba <b>Produtos</b>.'}</div>`;
 }
 $('#pdvCategorias').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.categoria = b.dataset.c; renderPDV(); });
@@ -95,20 +95,25 @@ $('#pdvBusca').addEventListener('keydown', (e) => {
   const m = q.match(/^(\d+(?:[.,]\d+)?)\*(.+)$/);
   if (m) { qtd = Number(m[1].replace(',', '.')); codigo = m[2].trim(); }
   const exato = S.produtos.find((p) => p.codigo && p.codigo.toLowerCase() === codigo.toLowerCase());
-  const p = exato || filtrados().find((x) => x.estoque > 0) || filtrados()[0];
+  const p = exato || filtrados().find((x) => disponivel(x) > 0) || filtrados()[0];
   if (!p) return toast('Produto não encontrado', true);
   adicionar(p.id, qtd);
 });
 
+// Quanto ainda pode entrar no carrinho (estoque menos o que já está no carrinho).
+const noCarrinho = (id) => { const it = S.carrinho.find((i) => i.produto_id === id); return it ? it.quantidade : 0; };
+const disponivel = (p) => Math.max(0, (Number(p.estoque) || 0) - noCarrinho(p.id));
+const avisoLimite = (p) => toast(`Limite de estoque: ${p.nome} tem só ${num(p.estoque)} ${p.unidade || 'un'}`, true);
 function adicionar(id, qtd) {
   const p = S.produtos.find((x) => x.id === id); if (!p) return;
   // Produto com estoque zerado (ou negativo) não entra no carrinho.
   if ((Number(p.estoque) || 0) <= 0) { toast(`${p.nome} está sem estoque`, true); $('#pdvBusca').value = ''; renderPDV(); return; }
-  const q = qtd || Number($('#pdvQtd').value) || 1;
+  let q = qtd || Number($('#pdvQtd').value) || 1;
+  const livre = disponivel(p);
+  if (livre <= 0) { avisoLimite(p); $('#pdvBusca').value = ''; $('#pdvQtd').value = 1; renderPDV(); return; }
+  if (q > livre) { q = livre; avisoLimite(p); } // coloca só até o máximo disponível
   const it = S.carrinho.find((i) => i.produto_id === id);
-  const novaQtd = (it ? it.quantidade : 0) + q;
-  if (novaQtd > p.estoque) toast(`Atenção: estoque de ${p.nome} é ${num(p.estoque)}`, true);
-  if (it) it.quantidade = novaQtd; else S.carrinho.push({ produto_id: id, quantidade: q });
+  if (it) it.quantidade += q; else S.carrinho.push({ produto_id: id, quantidade: q });
   $('#pdvBusca').value = ''; $('#pdvQtd').value = 1;
   renderPDV(); renderCarrinho(); focarBusca();
 }
@@ -121,10 +126,11 @@ function calc() {
 }
 function renderCarrinho() {
   $('#carrinho').innerHTML = S.carrinho.length ? S.carrinho.map((i, idx) => {
-    const p = S.produtos.find((x) => x.id === i.produto_id) || { nome: '?', preco_venda: 0 };
+    const p = S.produtos.find((x) => x.id === i.produto_id) || { nome: '?', preco_venda: 0, estoque: 0 };
+    const noMax = i.quantidade >= p.estoque;
     return `<div class="item">
       <div><div class="n">${esc(p.nome)}</div><div class="u">${brl(p.preco_venda)} / ${esc(p.unidade || 'un')}</div></div>
-      <div class="q"><button data-a="-" data-i="${idx}">−</button><input data-i="${idx}" type="number" step="any" min="0" value="${i.quantidade}"><button data-a="+" data-i="${idx}">+</button></div>
+      <div class="q"><button data-a="-" data-i="${idx}">−</button><input data-i="${idx}" type="number" step="any" min="0" max="${p.estoque}" value="${i.quantidade}"><button data-a="+" data-i="${idx}" class="${noMax ? 'max' : ''}" title="${noMax ? 'Máximo do estoque' : 'Mais um'}">+</button></div>
       <div style="display:flex;align-items:center;gap:4px"><span class="t">${brl(p.preco_venda * i.quantidade)}</span><button class="x" data-a="x" data-i="${idx}" title="Remover">✕</button></div>
     </div>`;
   }).join('') : '<div class="vazio">Carrinho vazio<br><span class="muted">Leia um código ou clique num produto</span></div>';
@@ -140,16 +146,24 @@ function renderCarrinho() {
 $('#carrinho').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const i = Number(b.dataset.i), it = S.carrinho[i];
-  if (b.dataset.a === '+') it.quantidade += 1;
+  if (b.dataset.a === '+') {
+    const p = S.produtos.find((x) => x.id === it.produto_id);
+    if (p && it.quantidade >= p.estoque) { it.quantidade = p.estoque; avisoLimite(p); }
+    else it.quantidade = p ? Math.min(it.quantidade + 1, p.estoque) : it.quantidade + 1;
+  }
   if (b.dataset.a === '-') it.quantidade = Math.max(0, it.quantidade - 1);
   if (b.dataset.a === 'x' || it.quantidade <= 0) S.carrinho.splice(i, 1);
-  renderCarrinho();
+  renderPDV(); renderCarrinho();
 });
 $('#carrinho').addEventListener('change', (e) => {
   if (e.target.tagName !== 'INPUT') return;
   const i = Number(e.target.dataset.i), v = Number(e.target.value);
-  if (v > 0) S.carrinho[i].quantidade = v; else S.carrinho.splice(i, 1);
-  renderCarrinho();
+  const p = S.produtos.find((x) => x.id === S.carrinho[i].produto_id);
+  if (v > 0) {
+    if (p && v > p.estoque) { S.carrinho[i].quantidade = p.estoque; avisoLimite(p); }
+    else S.carrinho[i].quantidade = v;
+  } else S.carrinho.splice(i, 1);
+  renderPDV(); renderCarrinho();
 });
 $('#cDesconto').addEventListener('input', renderCarrinho);
 $('#cRecebido').addEventListener('input', renderCarrinho);

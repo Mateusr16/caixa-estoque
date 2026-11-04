@@ -347,3 +347,6 @@ tr.cancelada td { color: var(--muted); text-decoration: line-through; }
   #relPrint tr { break-inside: avoid; }
   #relPrint .rel-rodape { margin-top: 14px; text-align: center; font-style: italic; }
 }
+
+/* Botão + do carrinho quando já chegou no máximo do estoque */
+.item .q button.max { opacity: .35; cursor: not-allowed; }
