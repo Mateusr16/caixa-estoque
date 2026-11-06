@@ -260,14 +260,21 @@ app.get('/api/vendas', wrap(async (req, res) => {
 app.get('/api/relatorio-vendas', wrap(async (req, res) => {
   const de = req.query.de || hoje(), ate = req.query.ate || hoje();
   const [vendas, itens] = await Promise.all([db.all('Vendas'), db.all('ItensVenda')]);
-  const ids = new Set(vendas.filter((v) => v.status !== 'cancelada' && v.data.slice(0, 10) >= de && v.data.slice(0, 10) <= ate).map((v) => v.id));
+  const doPeriodo = vendas.filter((v) => v.data.slice(0, 10) >= de && v.data.slice(0, 10) <= ate);
+  const ids = new Set(doPeriodo.filter((v) => v.status !== 'cancelada').map((v) => v.id));
+  const todosIds = new Set(doPeriodo.map((v) => v.id));
+  // Itens de cada venda do período (inclui canceladas, para aparecerem riscadas)
+  const itensPorVenda = {};
+  itens.filter((i) => todosIds.has(i.venda_id)).forEach((i) => {
+    (itensPorVenda[i.venda_id] = itensPorVenda[i.venda_id] || []).push({ nome: i.nome, quantidade: Number(i.quantidade) || 0, total: r2(Number(i.total) || 0) });
+  });
   const porProduto = {};
   itens.filter((i) => ids.has(i.venda_id)).forEach((i) => {
     const k = i.produto_id || i.nome;
     porProduto[k] = porProduto[k] || { nome: i.nome, quantidade: 0, total: 0 };
     porProduto[k].quantidade += Number(i.quantidade) || 0; porProduto[k].total = r2(porProduto[k].total + (Number(i.total) || 0));
   });
-  res.json({ produtos: Object.values(porProduto).sort((a, b) => b.total - a.total) });
+  res.json({ produtos: Object.values(porProduto).sort((a, b) => b.total - a.total), itensPorVenda });
 }));
 
 app.get('/api/vendas/:id', wrap(async (req, res) => {

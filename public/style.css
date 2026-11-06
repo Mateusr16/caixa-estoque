@@ -75,7 +75,9 @@ label input, label select { margin-top: 4px; }
 .prod .n { font-weight: 600; font-size: 14px; line-height: 1.25; min-height: 36px; }
 .prod .p { color: var(--pri); font-weight: 700; margin-top: 6px; font-size: 16px; }
 .prod .e { font-size: 12px; color: var(--muted); }
-.prod.zero { opacity: .45; }
+.prod.zero { opacity: .45; cursor: not-allowed; border-left-color: var(--line); }
+.prod.zero:hover { border-color: var(--line); box-shadow: none; }
+.prod .e .sem { color: var(--red); }
 .carrinho { flex: 1 1 auto; overflow-y: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); min-height: 90px; }
 .item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 2px; border-bottom: 1px dashed var(--line); }
 .item:last-child { border-bottom: 0; }
@@ -343,5 +345,12 @@ tr.cancelada td { color: var(--muted); text-decoration: line-through; }
   #relPrint tr.cancelada td { text-decoration: line-through; color: #777; }
   #relPrint tr.rel-total td { font-weight: 800; border-top: 2px solid #000; }
   #relPrint tr { break-inside: avoid; }
+  #relPrint .rel-itens { list-style: none; margin: 2px 0 0; padding: 0; font-size: 10.5px; color: #333; }
+  #relPrint .rel-itens li::before { content: '• '; color: #c59a3a; }
+  #relPrint .rel-itens span { color: #666; }
+  #relPrint td { vertical-align: top; }
   #relPrint .rel-rodape { margin-top: 14px; text-align: center; font-style: italic; }
 }
+
+/* Botão + do carrinho quando já chegou no máximo do estoque */
+.item .q button.max { opacity: .35; cursor: not-allowed; }
