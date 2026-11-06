@@ -15,6 +15,9 @@ body { margin: 0; font-family: "Nunito Sans", system-ui, -apple-system, "Segoe U
 h3 { margin: 0 0 12px; font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--azul); letter-spacing: .2px; }
 h3::after { content: ""; display: block; width: 36px; height: 2px; margin-top: 4px; background: linear-gradient(90deg, var(--ouro), transparent); }
 .muted { color: var(--muted); font-size: 13px; }
+#tabVendas td.v-produtos { font-size: 14px; line-height: 1.35; }
+#tabVendas td.v-produtos div + div { margin-top: 2px; }
+#tabVendas tr.cancelada td.v-produtos { text-decoration: line-through; color: var(--muted); }
 .erro { color: var(--red); font-size: 13px; min-height: 18px; }
 kbd { font: 11px ui-monospace, monospace; background: rgba(0,0,0,.08); padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
 

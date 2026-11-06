@@ -347,11 +347,11 @@ async function carregarVendas() {
   const porForma = {};
   ok.forEach((v) => (porForma[v.forma_pagamento] = (porForma[v.forma_pagamento] || 0) + v.total));
   $('#vendasTotais').innerHTML = `<b>${ok.length}</b> vendas · <b>${brl(ok.reduce((s, v) => s + v.total, 0))}</b> · ` + Object.entries(porForma).map(([f, t]) => `${f}: ${brl(t)}`).join(' · ');
-  $('#tabVendas').innerHTML = `<tr><th>Data</th><th>Venda</th><th>Caixa</th><th class="num">Itens</th><th>Pagamento</th><th class="num">Desconto</th><th class="num">Total</th><th>Status</th><th></th></tr>` +
-    (vendas.map((v) => `<tr class="${v.status}"><td>${dataBR(v.data)}</td><td class="muted">${v.id}</td><td>${esc(v.operador) || '<span class="muted">—</span>'}</td><td class="num">${num(v.itens_qtd)}</td><td>${esc(v.forma_pagamento)}</td>
+  $('#tabVendas').innerHTML = `<tr><th>Data</th><th>Venda</th><th>Produtos</th><th>Caixa</th><th class="num">Itens</th><th>Pagamento</th><th class="num">Desconto</th><th class="num">Total</th><th>Status</th><th></th></tr>` +
+    (vendas.map((v) => `<tr class="${v.status}"><td>${dataBR(v.data)}</td><td class="muted">${v.id}</td><td class="v-produtos">${(v.produtos || []).map((i) => `<div>${num(i.quantidade)}× ${esc(i.nome)}</div>`).join('') || '<span class="muted">—</span>'}</td><td>${esc(v.operador) || '<span class="muted">—</span>'}</td><td class="num">${num(v.itens_qtd)}</td><td>${esc(v.forma_pagamento)}</td>
       <td class="num">${v.desconto ? brl(v.desconto) : '—'}</td><td class="num"><b>${brl(v.total)}</b></td>
       <td><span class="tag ${v.status === 'cancelada' ? 'red' : 'green'}">${v.status}</span></td><td class="num"><button class="btn sm" data-v="${v.id}">Ver</button></td></tr>`).join('') ||
-      '<tr><td colspan="9" class="vazio">Nenhuma venda no período</td></tr>');
+      '<tr><td colspan="10" class="vazio">Nenhuma venda no período</td></tr>');
   rotular('#tabVendas');
 }
 $('#btnFiltrarVendas').addEventListener('click', carregarVendas);

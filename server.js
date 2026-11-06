@@ -252,8 +252,12 @@ app.post('/api/vendas', wrap(async (req, res) => lock(async () => {
 
 app.get('/api/vendas', wrap(async (req, res) => {
   const de = req.query.de || hoje(), ate = req.query.ate || hoje();
-  const vendas = (await db.all('Vendas')).filter((v) => v.data.slice(0, 10) >= de && v.data.slice(0, 10) <= ate).map(clean).reverse();
-  res.json(vendas);
+  const [todas, itens] = await Promise.all([db.all('Vendas'), db.all('ItensVenda')]);
+  const vendas = todas.filter((v) => v.data.slice(0, 10) >= de && v.data.slice(0, 10) <= ate).map(clean).reverse();
+  // Produtos de cada venda, para mostrar na tabela da aba Vendas
+  const porVenda = {};
+  itens.forEach((i) => { (porVenda[i.venda_id] = porVenda[i.venda_id] || []).push({ nome: i.nome, quantidade: Number(i.quantidade) || 0 }); });
+  res.json(vendas.map((v) => ({ ...v, produtos: porVenda[v.id] || [] })));
 }));
 
 // Produtos vendidos no período (para o relatório impresso da aba Vendas)
